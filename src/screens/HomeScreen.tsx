@@ -1,8 +1,37 @@
+/**
+ * @file HomeScreen.tsx -- Landing / title screen for Vibeyond.
+ *
+ * This is the first screen the user sees when they open the app
+ * (route `/`). It presents:
+ *
+ * - An animated star field background (`<StarField />`).
+ * - A glowing crescent moon illustration (the session's destination).
+ * - The app title "Vibeyond" with a tagline.
+ * - A floating Buzz Lightyear character with a gentle hover animation.
+ * - A prominent golden "Play!" button that navigates to `/play`
+ *   (the `SessionScreen`).
+ * - A gear icon in the top-right corner that navigates to `/settings`
+ *   (the `ParentSettingsScreen`).
+ *
+ * All visual elements use staggered Framer Motion entrance animations
+ * for a polished, sequential reveal.
+ *
+ * **Navigation:**
+ * - "Play!" button  -->  `/play` (SessionScreen)
+ * - Gear icon       -->  `/settings` (ParentSettingsScreen)
+ */
+
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { StarField } from "../components/StarField";
 
-/** Crescent moon SVG — larger version for home screen. */
+/**
+ * Crescent moon SVG illustration for the home screen.
+ *
+ * Renders a golden circle partially overlapped by a dark circle to
+ * create a crescent shape. A CSS drop-shadow filter produces the
+ * warm amber glow. Fades in and slides down on mount via Framer Motion.
+ */
 function MoonIllustration() {
   return (
     <motion.div
@@ -17,13 +46,22 @@ function MoonIllustration() {
         style={{ filter: "drop-shadow(0 0 24px rgba(251,191,36,0.45))" }}
       >
         <circle cx="48" cy="48" r="36" fill="#FBBF24" opacity="0.9" />
+        {/* Overlapping dark circle creates the crescent cutout effect.
+            Fill color matches the app background. */}
         <circle cx="38" cy="48" r="32" fill="#1A2140" />
       </svg>
     </motion.div>
   );
 }
 
-/** Buzz Lightyear illustration. */
+/**
+ * Buzz Lightyear character illustration.
+ *
+ * Loads a static PNG from `/public/buzz.png`. The image fades in on
+ * mount and then continuously bobs up and down (8px amplitude, 3s
+ * cycle) using a looping Framer Motion animation to give a
+ * "floating in space" effect.
+ */
 function BuzzIllustration() {
   return (
     <motion.div
@@ -41,6 +79,13 @@ function BuzzIllustration() {
   );
 }
 
+/**
+ * Home / title screen component.
+ *
+ * Vertically centers the moon, title, Buzz character, and Play button.
+ * No state management or data fetching happens here -- this screen is
+ * purely presentational with navigation callbacks.
+ */
 export function HomeScreen() {
   const navigate = useNavigate();
 

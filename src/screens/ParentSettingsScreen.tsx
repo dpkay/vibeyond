@@ -1,3 +1,41 @@
+/**
+ * @file ParentSettingsScreen.tsx -- Parent-facing configuration panel.
+ *
+ * This screen (route `/settings`) allows a parent to adjust app
+ * settings. It is reached from:
+ * - The gear icon on the `HomeScreen` (top-right corner).
+ * - The gear icon on the `SessionScreen` (right-side controls).
+ *
+ * **Settings exposed (in a 2-column card grid):**
+ *
+ * 1. **Session Length** -- Number of correct answers required to
+ *    "reach the Moon" and complete a session. Adjustable from 5 to 30
+ *    with +/- stepper buttons. Persisted immediately via
+ *    `updateSettings()`.
+ *
+ * 2. **Clef** -- Toggle treble and/or bass clef practice. At least one
+ *    clef must remain enabled (the guard on line 144 prevents
+ *    deselecting the last active clef).
+ *
+ * 3. **Note Range** -- Displays the currently configured note range
+ *    (read-only in the current implementation).
+ *
+ * 4. **Card Inspector** -- Navigation link to the `CardInspectorScreen`
+ *    at `/cards`.
+ *
+ * 5. **Reset Data** -- Destructive action that deletes the entire
+ *    IndexedDB database and reloads the page. Requires a two-step
+ *    confirmation to prevent accidental data loss.
+ *
+ * **Key state:**
+ * - `settings` / `updateSettings` from `useSettingsStore` (Zustand).
+ * - `confirmReset` (local boolean) gates the two-step reset flow.
+ *
+ * **Navigation:**
+ * - Back arrow  -->  `/` (HomeScreen).
+ * - Card Inspector tile  -->  `/cards` (CardInspectorScreen).
+ */
+
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useState } from "react";
@@ -5,11 +43,23 @@ import { useSettingsStore } from "../store/settingsStore";
 import { db } from "../db/db";
 import { StarField } from "../components/StarField";
 
+/**
+ * Parent settings screen component.
+ *
+ * Renders a centered, max-width container with a 2-column card grid
+ * over the animated StarField background. All setting changes are
+ * persisted to IndexedDB immediately through the settings store.
+ */
 export function ParentSettingsScreen() {
   const navigate = useNavigate();
   const { settings, updateSettings } = useSettingsStore();
+  /** Controls the two-step "Reset Data" confirmation flow. */
   const [confirmReset, setConfirmReset] = useState(false);
 
+  /**
+   * Adjusts the session length by `delta` (+1 or -1), clamped to [5, 30].
+   * The new value is persisted immediately to IndexedDB.
+   */
   const handleSessionLengthChange = (delta: number) => {
     const newLength = Math.max(5, Math.min(30, settings.sessionLength + delta));
     updateSettings({ sessionLength: newLength });
@@ -141,6 +191,8 @@ export function ParentSettingsScreen() {
                     }
                     whileTap={{ scale: 0.95 }}
                     onClick={() => {
+                      // Prevent deselecting the last remaining clef --
+                      // at least one must always be active.
                       if (enabled && settings.enabledClefs.length <= 1) return;
                       const updated = enabled
                         ? settings.enabledClefs.filter((c) => c !== clef)
@@ -256,6 +308,9 @@ export function ParentSettingsScreen() {
                     style={{ background: "#dc2626", color: "white", padding: "10px 16px" }}
                     whileTap={{ scale: 0.95 }}
                     onClick={async () => {
+                      // Nuke the entire IndexedDB database (cards,
+                      // sessions, settings) and hard-reload. Dexie
+                      // will recreate the DB with defaults on next load.
                       await db.delete();
                       window.location.href = "/";
                     }}

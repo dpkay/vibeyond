@@ -1,12 +1,58 @@
+/**
+ * @file FeedbackOverlay.tsx
+ *
+ * Full-screen overlay that displays immediate visual feedback after the child
+ * taps a piano key. For correct answers, a gold star bursts into view with
+ * radiating particles. For incorrect answers, a red X shakes briefly.
+ *
+ * The overlay is non-interactive (`pointer-events-none`) and renders at z-50
+ * so it appears above all other content. It auto-dismisses via `onComplete`
+ * after a short delay (1000 ms for correct, 1200 ms for incorrect -- the
+ * extra time for incorrect answers lets the child register the mistake
+ * without rushing them).
+ *
+ * **Design decisions:**
+ * - Inline styles are used for particle positioning because each particle's
+ *   final (x, y) offset is computed from trigonometry at runtime based on
+ *   randomized angle/distance values. Tailwind cannot express these.
+ * - SVG is used for the star and X icons (rather than emoji) because emoji
+ *   render as blank rectangles in headless Chrome / some WebView contexts.
+ * - The star particles are memoized via `useStarParticles` so they stay
+ *   consistent across re-renders while feedback is visible, avoiding
+ *   flickering mid-animation.
+ * - AnimatePresence wraps the overlay so Framer Motion can run exit
+ *   animations when `correct` transitions back to `null`.
+ */
+
 import { motion, AnimatePresence } from "framer-motion";
 import { useMemo } from "react";
 
+/**
+ * Props for the {@link FeedbackOverlay} component.
+ *
+ * @property correct - `true` for a correct answer (gold star burst),
+ *   `false` for incorrect (red X shake), or `null` when no feedback
+ *   should be displayed.
+ * @property onComplete - Callback invoked after the feedback animation
+ *   finishes and the auto-dismiss delay elapses. The parent typically
+ *   uses this to advance to the next challenge or clear the feedback state.
+ */
 interface FeedbackOverlayProps {
   correct: boolean | null;
   onComplete: () => void;
 }
 
-/** Generate random gold star burst particles. */
+/**
+ * Generates an array of randomized star-burst particle descriptors.
+ *
+ * Particles are evenly spaced around a full circle (by angle) with randomized
+ * distance, size, and stagger delay. Memoized on `count` so the same set of
+ * particles is reused across re-renders.
+ *
+ * @param count - Number of particles to generate.
+ * @returns An array of particle descriptors with `angle`, `distance`, `size`,
+ *   and `delay` properties.
+ */
 function useStarParticles(count: number) {
   return useMemo(() => {
     return Array.from({ length: count }, (_, i) => {
@@ -19,7 +65,19 @@ function useStarParticles(count: number) {
   }, [count]);
 }
 
-/** CSS-based gold star burst particle. */
+/**
+ * A single gold particle that radiates outward from the center during the
+ * correct-answer star burst animation.
+ *
+ * The particle starts at the center (x=0, y=0), expands to full size, then
+ * fades out as it reaches its final radial position. The warm gold color and
+ * glow box-shadow match the app's hero accent color.
+ *
+ * @param props.angle    - Direction of travel in degrees (0 = right, 90 = down).
+ * @param props.distance - How far the particle travels from center, in pixels.
+ * @param props.size     - Diameter of the particle in pixels.
+ * @param props.delay    - Stagger delay in seconds before this particle starts.
+ */
 function GoldParticle({
   angle,
   distance,
@@ -61,7 +119,24 @@ function GoldParticle({
   );
 }
 
-/** Full-screen feedback flash for correct/incorrect answers. */
+/**
+ * Full-screen feedback overlay for correct/incorrect answer animations.
+ *
+ * When `correct` is non-null, the overlay fades in with a subtle background
+ * tint (green for correct, red for incorrect) and displays the appropriate
+ * animation:
+ *
+ * - **Correct:** A gold five-pointed star SVG springs into view with a spin,
+ *   accompanied by 12 radiating gold particles. A green tint washes the screen.
+ * - **Incorrect:** A red circle-X SVG appears and shakes side-to-side using
+ *   keyframe x-offsets `[0, -12, 12, -8, 8, -4, 4, 0]` for a decaying
+ *   oscillation effect. A red tint washes the screen.
+ *
+ * After the enter animation completes, a `setTimeout` fires `onComplete`
+ * (1000 ms for correct, 1200 ms for incorrect).
+ *
+ * @param props - See {@link FeedbackOverlayProps}.
+ */
 export function FeedbackOverlay({ correct, onComplete }: FeedbackOverlayProps) {
   const particles = useStarParticles(12);
 
@@ -79,7 +154,7 @@ export function FeedbackOverlay({ correct, onComplete }: FeedbackOverlayProps) {
             setTimeout(onComplete, correct ? 1000 : 1200);
           }}
         >
-          {/* Background tint */}
+          {/* Background tint -- green for correct, red for incorrect */}
           <motion.div
             className="absolute inset-0"
             style={{
@@ -92,7 +167,7 @@ export function FeedbackOverlay({ correct, onComplete }: FeedbackOverlayProps) {
             exit={{ opacity: 0 }}
           />
 
-          {/* Correct: Gold star burst */}
+          {/* Correct: Gold star burst with radiating particles */}
           {correct && (
             <motion.div
               className="relative flex items-center justify-center"
@@ -101,7 +176,7 @@ export function FeedbackOverlay({ correct, onComplete }: FeedbackOverlayProps) {
               exit={{ scale: 1.5, opacity: 0 }}
               transition={{ type: "spring", stiffness: 300, damping: 15 }}
             >
-              {/* Central gold star SVG */}
+              {/* Central gold star SVG -- springs in with rotation */}
               <motion.svg
                 viewBox="0 0 64 64"
                 width="80"
@@ -130,7 +205,7 @@ export function FeedbackOverlay({ correct, onComplete }: FeedbackOverlayProps) {
             </motion.div>
           )}
 
-          {/* Incorrect: subtle shake indicator */}
+          {/* Incorrect: subtle shake indicator with red X */}
           {!correct && (
             <motion.div
               className="relative"
@@ -138,7 +213,7 @@ export function FeedbackOverlay({ correct, onComplete }: FeedbackOverlayProps) {
               animate={{ x: [0, -12, 12, -8, 8, -4, 4, 0] }}
               transition={{ duration: 0.5, ease: "easeInOut" }}
             >
-              {/* X mark */}
+              {/* X mark -- circle with crossed lines, all in translucent red */}
               <svg
                 viewBox="0 0 64 64"
                 width="72"

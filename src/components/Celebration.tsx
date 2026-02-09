@@ -1,14 +1,62 @@
+/**
+ * @file Celebration.tsx
+ *
+ * Full-screen celebration overlay displayed when the child completes a session
+ * (reaches the Moon). This is the big reward moment -- a large crescent moon
+ * with Buzz arriving, gold confetti particles rising, and a congratulatory
+ * message with score summary.
+ *
+ * **Animation choreography (delays are staggered for dramatic reveal):**
+ * 1. `0.0s` -- Screen fades in, starfield visible.
+ * 2. `0.1s` -- Moon springs into view (scale 0.5 -> 1).
+ * 3. `0.3s` -- Main content container (title, score) springs in.
+ * 4. `0.0s-0.2s+` -- Gold confetti particles begin rising (staggered).
+ * 5. `0.6s` -- Buzz slides up into frame beside the moon.
+ * 6. `0.8s` -- Score text fades in.
+ * 7. `1.0s` -- "Amazing job!" text fades in.
+ * 8. `2.5s` -- "Play Again!" button appears.
+ *
+ * **Design decisions:**
+ * - Inline styles for confetti particles because each particle has unique
+ *   randomized x, y, size, delay, and rotation values computed at runtime.
+ * - The "Play Again!" button is intentionally delayed 2.5 seconds so the
+ *   child has time to enjoy the celebration before being prompted to act.
+ * - Three shades of gold are used for confetti particles (#FBBF24, #F59E0B,
+ *   #FDE68A) to add visual variety while staying within the warm amber palette.
+ * - Larger particles (> 8px) use a 2px border-radius (square-ish confetti),
+ *   while smaller ones are fully round, mimicking real confetti variety.
+ */
+
 import { motion } from "framer-motion";
 import { useMemo, useState, useEffect } from "react";
 import { StarField } from "./StarField";
 
+/**
+ * Props for the {@link Celebration} component.
+ *
+ * @property onDone        - Callback invoked when the child taps "Play Again!".
+ *   The parent typically starts a new session or navigates to the home screen.
+ * @property correctCount  - Number of correct answers in the completed session.
+ *   Displayed in the score summary. Omit to hide the score line.
+ * @property totalCount    - Total number of challenges in the completed session.
+ *   Displayed alongside `correctCount`. Omit to hide the score line.
+ */
 interface CelebrationProps {
   onDone: () => void;
   correctCount?: number;
   totalCount?: number;
 }
 
-/** Generate random gold star particles for confetti effect. */
+/**
+ * Generates randomized gold confetti particle descriptors for the celebration.
+ *
+ * Each particle has a random horizontal offset, vertical start/end positions
+ * (they rise upward), size, stagger delay, animation duration, and rotation.
+ * Memoized on `count` to remain stable across re-renders.
+ *
+ * @param count - Number of confetti particles to generate.
+ * @returns Array of particle descriptors.
+ */
 function useGoldParticles(count: number) {
   return useMemo(() => {
     return Array.from({ length: count }, (_, i) => {
@@ -24,7 +72,13 @@ function useGoldParticles(count: number) {
   }, [count]);
 }
 
-/** Large crescent moon SVG. */
+/**
+ * Large crescent moon SVG displayed as the centerpiece of the celebration.
+ *
+ * Uses the same two-circle crescent technique as the ProgressionBar's MoonIcon
+ * but at a larger scale (220x220) with a stronger glow. Springs in with a
+ * 0.1s delay.
+ */
 function CelebrationMoon() {
   return (
     <motion.div
@@ -41,13 +95,20 @@ function CelebrationMoon() {
         }}
       >
         <circle cx="80" cy="80" r="60" fill="#FBBF24" opacity="0.9" />
+        {/* Inner circle uses the celebration background color to carve the crescent */}
         <circle cx="65" cy="80" r="52" fill="#151b2e" />
       </svg>
     </motion.div>
   );
 }
 
-/** Buzz arriving at the moon. */
+/**
+ * Buzz character arriving at the Moon with a spring-up entrance animation.
+ *
+ * Positioned absolutely at the bottom-right of the moon container so it looks
+ * like Buzz is landing beside the moon. Slides up from y=200 with a 0.6s delay
+ * to appear after the moon has settled.
+ */
 function ArrivalBuzz() {
   return (
     <motion.div
@@ -67,9 +128,19 @@ function ArrivalBuzz() {
   );
 }
 
-/** Moon-reached celebration screen with SVG/CSS-based animations. */
+/**
+ * Full-screen celebration overlay shown when the child completes a session.
+ *
+ * Renders a fixed overlay at z-50 with a dark space background, animated
+ * starfield, rising gold confetti, a large crescent moon with Buzz, the
+ * "You reached the Moon!" title, an optional score summary, and a delayed
+ * "Play Again!" button.
+ *
+ * @param props - See {@link CelebrationProps}.
+ */
 export function Celebration({ onDone, correctCount, totalCount }: CelebrationProps) {
   const goldParticles = useGoldParticles(20);
+  /** Controls delayed appearance of the "Play Again!" button (2.5s after mount). */
   const [showButton, setShowButton] = useState(false);
 
   useEffect(() => {
@@ -87,7 +158,10 @@ export function Celebration({ onDone, correctCount, totalCount }: CelebrationPro
     >
       <StarField />
 
-      {/* Gold star particles — CSS-based confetti */}
+      {/*
+        Gold confetti particles -- rise from below center to above,
+        spinning and fading as they go. Three gold shades cycle via i % 3.
+      */}
       {goldParticles.map((p, i) => (
         <motion.div
           key={i}
@@ -120,7 +194,7 @@ export function Celebration({ onDone, correctCount, totalCount }: CelebrationPro
         />
       ))}
 
-      {/* Main content */}
+      {/* Main content -- springs in as a group */}
       <motion.div
         className="relative z-10 flex flex-col items-center text-center"
         initial={{ scale: 0, opacity: 0 }}
@@ -132,7 +206,7 @@ export function Celebration({ onDone, correctCount, totalCount }: CelebrationPro
           delay: 0.3,
         }}
       >
-        {/* Moon + Rocket */}
+        {/* Moon + Buzz grouped together for relative positioning */}
         <div className="relative" style={{ marginBottom: 32 }}>
           <CelebrationMoon />
           <ArrivalBuzz />
@@ -146,7 +220,7 @@ export function Celebration({ onDone, correctCount, totalCount }: CelebrationPro
           You reached the Moon!
         </h1>
 
-        {/* Score summary */}
+        {/* Score summary -- only shown when both counts are provided */}
         {correctCount != null && totalCount != null && (
           <motion.p
             className="text-muted text-xl md:text-2xl"
@@ -169,7 +243,8 @@ export function Celebration({ onDone, correctCount, totalCount }: CelebrationPro
           Amazing job!
         </motion.p>
 
-        {/* Play Again button — appears after 2.5s */}
+        {/* "Play Again!" button -- intentionally delayed 2.5s so the child
+            can enjoy the celebration before being prompted to take action */}
         {showButton && (
           <motion.button
             className="font-display font-extrabold text-white text-2xl md:text-3xl rounded-2xl cursor-pointer"

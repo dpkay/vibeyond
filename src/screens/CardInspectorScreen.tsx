@@ -1,3 +1,32 @@
+/**
+ * @file CardInspectorScreen.tsx -- Developer/parent FSRS card browser.
+ *
+ * This screen (route `/cards`) provides a detailed view of every FSRS
+ * flashcard in the system. It is reached from the "Card Inspector"
+ * tile on the `ParentSettingsScreen`.
+ *
+ * **What it shows:**
+ * - A summary row with total card count and per-state breakdowns
+ *   (New / Learning / Review / Relearning), each color-coded.
+ * - A sortable 2-column grid where each tile shows:
+ *   - Note name (e.g. "C4", "F#5").
+ *   - FSRS state badge (color-coded).
+ *   - Total reps completed.
+ *   - Historical success rate percentage (green/amber/red).
+ *   - Time until next review is due.
+ * - Three sort modes: by pitch (semitone order), by FSRS state, or
+ *   by success rate (ascending, so struggling notes appear first).
+ *
+ * **Key state:**
+ * - `cards` from `useCardStore` (Zustand, already hydrated by `AppLoader`).
+ * - `sessions` loaded directly from IndexedDB on mount to compute
+ *   per-note accuracy statistics.
+ * - `sortMode` (local) controls the current sort order.
+ *
+ * **Navigation:**
+ * - Back arrow  -->  `/settings` (ParentSettingsScreen).
+ */
+
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -8,8 +37,10 @@ import { db } from "../db/db";
 import { StarField } from "../components/StarField";
 import type { AppCard, Session, NoteId } from "../types";
 
+/** The three available sort modes for the card grid. */
 type SortMode = "note" | "state" | "success";
 
+/** Human-readable labels for each FSRS card state. */
 const STATE_LABELS: Record<number, string> = {
   [State.New]: "New",
   [State.Learning]: "Learning",
@@ -17,6 +48,13 @@ const STATE_LABELS: Record<number, string> = {
   [State.Relearning]: "Relearning",
 };
 
+/**
+ * Color tokens for each FSRS state, used for badge backgrounds and text.
+ * - New: muted gray (hasn't been seen yet).
+ * - Learning: blue (actively being learned).
+ * - Review: green (graduated to spaced review).
+ * - Relearning: orange (lapsed, being re-learned).
+ */
 const STATE_COLORS: Record<number, string> = {
   [State.New]: "#8890a8",
   [State.Learning]: "#60a5fa",
@@ -24,11 +62,21 @@ const STATE_COLORS: Record<number, string> = {
   [State.Relearning]: "#fb923c",
 };
 
+/** Aggregated accuracy statistics for a single note. */
 interface NoteStats {
   attempts: number;
   correct: number;
 }
 
+/**
+ * Aggregates per-note accuracy statistics from all historical sessions.
+ *
+ * Iterates every challenge in every session and tallies the number of
+ * attempts and correct answers for each unique `NoteId`.
+ *
+ * @param sessions - All sessions loaded from IndexedDB.
+ * @returns A map from NoteId to its cumulative NoteStats.
+ */
 function computeNoteStats(sessions: Session[]): Map<NoteId, NoteStats> {
   const stats = new Map<NoteId, NoteStats>();
   for (const session of sessions) {
@@ -43,6 +91,12 @@ function computeNoteStats(sessions: Session[]): Map<NoteId, NoteStats> {
   return stats;
 }
 
+/**
+ * Formats a card's `due` date as a human-readable relative time string.
+ *
+ * @param due - The date when the card is next due for review.
+ * @returns "due now" if overdue, "in Xh" if less than 24 hours, or "in Xd" otherwise.
+ */
 function dueLabel(due: Date): string {
   const now = Date.now();
   const diff = due.getTime() - now;
@@ -53,22 +107,36 @@ function dueLabel(due: Date): string {
   return `in ${days}d`;
 }
 
+/**
+ * Converts a NoteId to a numeric semitone value for chromatic sorting.
+ * Lower notes get lower values, enabling pitch-ascending sort order.
+ */
 function noteOrderValue(noteId: NoteId): number {
   return noteToSemitone(noteFromId(noteId));
 }
 
+/**
+ * Card inspector screen component.
+ *
+ * Loads session history on mount to compute accuracy stats, then
+ * renders a sortable grid of all FSRS cards with their state, reps,
+ * success rate, and due date.
+ */
 export function CardInspectorScreen() {
   const navigate = useNavigate();
   const { cards } = useCardStore();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [sortMode, setSortMode] = useState<SortMode>("note");
 
+  /** Load all historical sessions from IndexedDB on mount for stats computation. */
   useEffect(() => {
     db.sessions.toArray().then(setSessions);
   }, []);
 
+  /** Memoized per-note accuracy stats derived from session history. */
   const noteStats = useMemo(() => computeNoteStats(sessions), [sessions]);
 
+  /** Memoized count of cards in each FSRS state for the summary badges. */
   const stateCounts = useMemo(() => {
     const counts = { [State.New]: 0, [State.Learning]: 0, [State.Review]: 0, [State.Relearning]: 0 };
     for (const card of cards) {
@@ -77,6 +145,15 @@ export function CardInspectorScreen() {
     return counts;
   }, [cards]);
 
+  /**
+   * Memoized sorted copy of the cards array.
+   *
+   * Sort strategies:
+   * - "note": chromatic pitch order (C2 -> B6) via semitone value.
+   * - "state": FSRS state enum order (New=0, Learning=1, Review=2, Relearning=3).
+   * - "success": ascending success rate so struggling notes appear first.
+   *   Cards with no attempts sort to the top (rate = -1).
+   */
   const sortedCards = useMemo(() => {
     const sorted = [...cards];
     switch (sortMode) {
@@ -209,10 +286,22 @@ export function CardInspectorScreen() {
   );
 }
 
+/**
+ * A single card tile in the inspector grid.
+ *
+ * Displays the note name, FSRS state badge, rep count, historical
+ * success rate (color-coded: green >= 80%, amber >= 50%, red < 50%),
+ * and a relative due-date label.
+ *
+ * @param card - The FSRS AppCard to display.
+ * @param stats - Optional aggregated accuracy stats for this note.
+ *                Undefined if the note has never been practiced.
+ */
 function CardRow({ card, stats }: { card: AppCard; stats?: NoteStats }) {
   const note = noteFromId(card.noteId);
   const name = noteToString(note);
   const stateNum = card.state as number;
+  /** Percentage success rate, or null if the note has never been attempted. */
   const successRate =
     stats && stats.attempts > 0
       ? Math.round((stats.correct / stats.attempts) * 100)

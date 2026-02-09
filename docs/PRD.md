@@ -38,6 +38,16 @@ It is built as an offline-first Progressive Web App so it works seamlessly durin
 - **As Luca**, I am shown notes I struggle with more frequently so I improve where I need it most.
 - **As Luca**, notes I've mastered appear less often so practice doesn't feel boring.
 
+### Hints
+- **As Luca**, I can tap a hint button (Woody) to get help when I'm stuck, so I can learn the answer instead of guessing randomly.
+- **As Luca**, I see a familiar mnemonic (like "FACE" or "Every Good Bird Deserves Fun") with the relevant letter highlighted, so I build long-term memory aids.
+- **As Luca**, using a hint costs one step of progression (Buzz moves back), so I'm motivated to try on my own first.
+
+### Card Inspector (Parent)
+- **As a parent**, I can see every card in the system with its FSRS state so I understand exactly what Luca is practicing.
+- **As a parent**, I can see per-card attempt counts and success rates so I know which notes he's struggling with.
+- **As a parent**, I can sort and filter cards by state or success rate so I can quickly find problem areas.
+
 ### Offline
 - **As a parent**, I can open the app on an airplane and everything works — no loading spinners, no missing assets.
 
@@ -64,9 +74,9 @@ This separation keeps the code simple and testable. If we ever want to add new l
 |---|---|
 | **Staff display** | Renders a single note on a treble clef staff. Clean, large, easy to read for a young child. |
 | **On-screen piano** | A playable piano keyboard with large, tactile buttons. Plays a piano sample on tap for audio feedback. |
-| **Answer evaluation** | Compares the tapped key to the displayed note. Provides immediate visual and audio feedback (correct/incorrect). |
+| **Answer evaluation** | Compares the tapped key to the displayed note using enharmonic-aware matching (e.g. C# = Db, E# = F). Provides immediate visual and audio feedback (correct/incorrect). |
 | **Buzz Lightyear progression** | Buzz starts at the bottom of the screen and advances toward the Moon on correct answers. Moves backward on incorrect answers. Reaching the Moon triggers a celebration. |
-| **Spaced repetition engine** | Tracks mastery per note using a spaced repetition algorithm (e.g. FSRS). Schedules notes for review based on difficulty and error history. |
+| **Spaced repetition engine** | Tracks mastery per note using a spaced repetition algorithm (e.g. FSRS). Schedules notes for review based on difficulty and error history. Cards are generated for all naturals, sharps, and flats in the challenge range — including theoretical accidentals (E#, Fb, B#, Cb) so the learner recognizes every enharmonic spelling. |
 | **Parent mode** | A parent-accessible settings screen to configure the range of notes shown: selectable octaves and min/max note boundaries. Controls which notes appear in practice sessions. |
 | **Galactic theme** | Vibrant space-themed UI with stars, planets, and a galactic color palette. Large buttons, bouncy animations, designed to feel like a premium digital toy — not a standard "educational app." |
 
@@ -76,7 +86,8 @@ This separation keeps the code simple and testable. If we ever want to add new l
 |---|---|
 | **Note sequences** | Display multiple notes on the staff that Luca must play in order. All notes must be played correctly in sequence to score. Builds sight-reading fluency beyond single-note recognition. |
 | **Session summary** | After completing a session (reaching the Moon), show a summary of how many notes were attempted, accuracy, and which notes were hardest. |
-| **Parent dashboard** | Simple view showing mastery levels per note, recent session history, and areas of difficulty. |
+| **Hint system** | A Woody icon button on the session screen. Tapping it reveals a contextual mnemonic hint for the current note and moves Buzz back one step (cost for using it). Treble clef spaces: "FACE", treble clef lines: "Every Good Bird Deserves Fun". Bass clef spaces: "All Cows Eat Grass", bass clef lines: "Good Boys Do Fine Always". The relevant letter is highlighted. For accidentals, the hint shows the mnemonic for the natural note plus "with a sharp/flat". For ledger line notes outside the staff, a simpler positional hint (e.g. "One line below the staff = C"). |
+| **Card Inspector** | A dedicated `/cards` screen accessible from Settings. Shows every FSRS card in the system with a summary bar (total count, breakdown by state: New/Learning/Review/Relearning). Each card row displays the note name, FSRS state badge, rep count, success rate (computed from session history), and due status. Sortable by note order, state, or success rate. Gives parents full visibility into what's in the system and where Luca is struggling. |
 | **Offline support** | All assets (code, piano samples, images) are pre-cached via service worker. The app is fully functional with no network connection. |
 | **Bass clef support** | Add bass clef notes alongside treble clef. Can be practiced separately or combined. |
 | **Difficulty progression** | Start with a small set of notes (e.g. Middle C through G in treble clef) and gradually unlock more notes as mastery is demonstrated. |

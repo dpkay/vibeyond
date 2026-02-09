@@ -61,6 +61,7 @@ graph TD
     Router --> SessionScreen
     Router --> SessionSummaryScreen["SessionSummaryScreen (P1)"]
     Router --> ParentSettingsScreen
+    Router --> CardInspectorScreen["CardInspectorScreen (P1)"]
     SessionScreen --> ProgressionBar
     SessionScreen --> StaffDisplay
     SessionScreen --> FeedbackOverlay
@@ -143,8 +144,12 @@ interface Session {
 /** Parent-configurable settings. */
 interface Settings {
   noteRange: {
+    minNote: Note;   // e.g. { pitch: "C", octave: 2, clef: "treble" }
+    maxNote: Note;   // e.g. { pitch: "B", octave: 5, clef: "treble" }
+  };
+  challengeRange: {
     minNote: Note;   // e.g. { pitch: "C", octave: 4, clef: "treble" }
-    maxNote: Note;   // e.g. { pitch: "G", octave: 5, clef: "treble" }
+    maxNote: Note;   // e.g. { pitch: "A", octave: 5, clef: "treble" }
   };
   enabledClefs: ("treble" | "bass")[];
   sessionLength: number;     // number of correct answers to reach the Moon
@@ -169,15 +174,24 @@ db.version(1).stores({
 The core logic is a set of plain functions and a Zustand store — no abstract interfaces or plugin system.
 
 ```typescript
-/** Evaluate whether the pressed key matches the displayed note. */
+/** Convert a note to absolute semitone value for enharmonic comparison. */
+function noteToSemitone(note: Note): number {
+  const SEMITONES = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+  let semi = note.octave * 12 + SEMITONES[note.pitch];
+  if (note.accidental === "sharp") semi += 1;
+  if (note.accidental === "flat") semi -= 1;
+  return semi;
+}
+
+/**
+ * Evaluate whether the pressed key matches the displayed note.
+ * Uses enharmonic-aware matching: C# = Db, E# = F, etc.
+ */
 function evaluateAnswer(prompt: Note, response: Note): {
   correct: boolean;
   feedback?: { expected: string; actual: string };
 } {
-  const correct =
-    prompt.pitch === response.pitch &&
-    prompt.accidental === response.accidental &&
-    prompt.octave === response.octave;
+  const correct = noteToSemitone(prompt) === noteToSemitone(response);
   return {
     correct,
     feedback: correct ? undefined : {
@@ -191,6 +205,16 @@ function evaluateAnswer(prompt: Note, response: Note): {
 function selectNextCard(cards: Card[]): Card {
   // Cards due soonest come first; new cards mixed in
   return cards.sort((a, b) => a.due.getTime() - b.due.getTime())[0];
+}
+
+/**
+ * Generate note range including all accidentals.
+ * For each natural in the range, generates the natural plus its sharp and flat.
+ * Includes theoretical accidentals (E#, Fb, B#, Cb) so every enharmonic
+ * spelling is a separate card. Range bounds use semitone comparison.
+ */
+function noteRange(min: Note, max: Note, clef: string): Note[] {
+  // Iterates all pitches × accidentals, filters by semitone range
 }
 
 /** Update a card after a review using ts-fsrs. */
@@ -268,6 +292,7 @@ vibeyond/
 │   │   ├── HomeScreen.tsx
 │   │   ├── SessionScreen.tsx
 │   │   ├── SessionSummaryScreen.tsx  # P1
+│   │   ├── CardInspectorScreen.tsx  # P1
 │   │   └── ParentSettingsScreen.tsx
 │   ├── store/                  # Zustand stores
 │   │   ├── sessionStore.ts
@@ -284,6 +309,66 @@ vibeyond/
 ├── package.json
 └── README.md
 ```
+
+---
+
+## Card Inspector (P1)
+
+The Card Inspector is a parent-facing screen at `/cards`, linked from the Settings screen. It gives full visibility into the FSRS card state.
+
+### Data Sources
+
+No new persistence is needed. All data comes from existing stores:
+
+- **Card list + FSRS state**: `cardStore` → Dexie `cards` table. Each `AppCard` has `noteId`, `state` (New/Learning/Review/Relearning), `reps`, `lapses`, `due`, `stability`, `difficulty`.
+- **Per-card success rate**: Computed by scanning all `Session.challenges` from Dexie `sessions` table. For each `promptNote`, count total attempts and correct answers.
+
+### Screen Layout
+
+```
+┌─────────────────────────────────────────┐
+│  ← Back              Card Inspector     │
+├─────────────────────────────────────────┤
+│  22 cards total                         │
+│  [14 New] [5 Learning] [3 Review]       │
+├─────────────────────────────────────────┤
+│  Sort: Note ▾ | State ▾ | Success ▾    │
+├─────────────────────────────────────────┤
+│  C4    ● New       0 reps    —          │
+│  D4    ● Review    12 reps   92%        │
+│  E4    ● Learning  3 reps    67%        │
+│  F4    ● Review    8 reps    88%        │
+│  ...                                    │
+└─────────────────────────────────────────┘
+```
+
+### Components
+
+- **`CardInspectorScreen`** — Route screen at `/cards`. Loads all cards and sessions on mount, computes per-card stats, renders summary + list.
+- **Summary bar** — Total card count + state breakdown badges (colored by state).
+- **Card row** — Note name, state badge, rep count, success rate (or "—" if no attempts), due status ("due now" / "in 2d" / etc.).
+- **Sort controls** — Toggle between note order (default), FSRS state, or success rate ascending.
+
+### Stats Computation
+
+```typescript
+/** Compute per-note stats from session history. */
+function computeNoteStats(sessions: Session[]): Map<NoteId, { attempts: number; correct: number }> {
+  const stats = new Map();
+  for (const session of sessions) {
+    for (const challenge of session.challenges) {
+      const id = noteToId(challenge.promptNote);
+      const entry = stats.get(id) ?? { attempts: 0, correct: 0 };
+      entry.attempts++;
+      if (challenge.correct) entry.correct++;
+      stats.set(id, entry);
+    }
+  }
+  return stats;
+}
+```
+
+This is computed once on screen mount — no need for real-time reactivity since this is a read-only diagnostic view.
 
 ---
 
@@ -348,3 +433,14 @@ Cross-reference of every P0 feature from the PRD with its technical implementati
 | Spaced repetition engine | `logic/scheduler.ts` wrapping ts-fsrs, `Card` model in Dexie |
 | Parent mode | `ParentSettingsScreen` reading/writing `Settings` in Dexie |
 | Galactic theme | Tailwind theme config + Framer Motion animations + `StarField` background |
+
+### P1 Feature Coverage
+
+| PRD Feature | Technical Implementation |
+|---|---|
+| Card Inspector | `CardInspectorScreen` at `/cards`. Reads `AppCard` from Dexie + scans `Session.challenges` to compute per-note attempt/success stats. Summary bar + sortable card list. |
+| Note sequences | TBD |
+| Session summary | `SessionSummaryScreen` — TBD |
+| Offline support | `vite-plugin-pwa` service worker + asset pre-caching — TBD |
+| Bass clef support | TBD |
+| Difficulty progression | TBD |

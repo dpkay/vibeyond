@@ -9,12 +9,12 @@ Vibeyond uses a three-layer architecture that separates domain-specific learning
 ```mermaid
 graph TD
     subgraph Modules
-        A[StaffDisplay<br/>Prompt]
-        B[PianoKeyboard<br/>Response]
+        A[StaffDisplay - Prompt]
+        B[PianoKeyboard - Response]
     end
 
     subgraph Quests
-        C[NoteRecognitionQuest<br/>prompt + response + evaluator]
+        C[NoteRecognitionQuest]
     end
 
     subgraph Core Engine

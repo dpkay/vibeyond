@@ -2,7 +2,7 @@
 
 **Fly to the Moon, one note at a time!**
 
-A gamified piano sight-reading app that turns music practice into a space adventure. Built for a 5-year-old, powered by spaced repetition, and developed in a single evening with [Claude Code](https://claude.ai/claude-code).
+A gamified piano sight-reading app that turns music practice into a space adventure. Built for a 5-year-old, powered by spaced repetition, and developed in a single evening with [Claude Code](https://code.claude.com/docs/en/overview).
 
 <p>
   <img src="screenshots/readme-session.png" width="48%" alt="Session screen" />

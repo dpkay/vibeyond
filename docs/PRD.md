@@ -46,15 +46,15 @@ It is built as an offline-first Progressive Web App so it works seamlessly durin
 
 ## Design Principles
 
-### Modules, Quests, and the Core Engine
+### Separation of Concerns
 
-The app architecture has three layers:
+The app cleanly separates what it shows and how it works:
 
-- **Module** — A swappable UI component that serves as either a *prompt* (what the app shows the learner) or a *response* (how the learner answers). Examples: staff display (prompt), piano keyboard (response), chess board (prompt and response).
-- **Quest** — Composes a prompt module + response module + domain-specific evaluation logic into a specific learning experience. For example, the "Note Recognition Quest" wires together a staff module (prompt) + piano module (response) + note-matching evaluator. A future "Chess Puzzle Quest" would wire a chess board (prompt) + chess board (response) + move evaluator.
-- **Core engine** — The domain-agnostic layer that any quest plugs into: progression system (Buzz Lightyear), spaced repetition scheduling, session flow, and gamification. The core engine doesn't know or care whether the learner is identifying piano notes or solving chess puzzles.
+- **UI components** — The staff display (shows a note) and piano keyboard (accepts input) are standalone React components. They receive data and fire callbacks but don't manage session state, scoring, or scheduling.
+- **Session logic** — Orchestrates the core loop: pick a note (via spaced repetition), show it on the staff, accept a key press, evaluate the answer, update progression, repeat. This layer is pure logic with no UI.
+- **Persistence** — FSRS card states, session history, and settings are stored locally in IndexedDB. No backend, no network calls.
 
-This separation ensures that adding new learning domains means building new modules and a quest definition — not rewriting the progression, spaced repetition, or session logic.
+This separation keeps the code simple and testable. If we ever want to add new learning domains (chess puzzles, math drills), the session logic and persistence layers can be reused.
 
 ## Features
 

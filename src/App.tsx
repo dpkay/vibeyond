@@ -6,6 +6,7 @@ import { HomeScreen } from "./screens/HomeScreen";
 import { SessionScreen } from "./screens/SessionScreen";
 import { ParentSettingsScreen } from "./screens/ParentSettingsScreen";
 import { CardInspectorScreen } from "./screens/CardInspectorScreen";
+import { Celebration } from "./components/Celebration";
 
 function AppLoader({ children }: { children: React.ReactNode }) {
   const { loaded: settingsLoaded, loadSettings } = useSettingsStore();
@@ -40,6 +41,7 @@ export default function App() {
           <Route path="/play" element={<SessionScreen />} />
           <Route path="/settings" element={<ParentSettingsScreen />} />
           <Route path="/cards" element={<CardInspectorScreen />} />
+          <Route path="/celebrate" element={<Celebration onDone={() => window.location.href = "/"} correctCount={27} totalCount={30} />} />
         </Routes>
       </AppLoader>
     </BrowserRouter>

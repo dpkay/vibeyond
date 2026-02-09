@@ -34,8 +34,8 @@ function CelebrationMoon() {
     >
       <svg
         viewBox="0 0 160 160"
-        width="160"
-        height="160"
+        width="220"
+        height="220"
         style={{
           filter: "drop-shadow(0 0 40px rgba(251,191,36,0.5))",
         }}
@@ -52,7 +52,7 @@ function ArrivalBuzz() {
   return (
     <motion.div
       className="absolute"
-      style={{ bottom: "20%", left: "calc(50% + 55px)" }}
+      style={{ bottom: "-20px", right: "-60px" }}
       initial={{ y: 200, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{
@@ -62,7 +62,7 @@ function ArrivalBuzz() {
         delay: 0.6,
       }}
     >
-      <img src="/buzz.png" alt="Buzz" width="72" height="72" style={{ objectFit: "contain" }} />
+      <img src="/buzz.png" alt="Buzz" width="110" height="110" style={{ objectFit: "contain" }} />
     </motion.div>
   );
 }
@@ -80,7 +80,7 @@ export function Celebration({ onDone, correctCount, totalCount }: CelebrationPro
   return (
     <motion.div
       className="fixed inset-0 z-50 flex flex-col items-center justify-center"
-      style={{ background: "rgba(21,27,46,0.92)" }}
+      style={{ background: "#151b2e" }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
@@ -133,20 +133,24 @@ export function Celebration({ onDone, correctCount, totalCount }: CelebrationPro
         }}
       >
         {/* Moon + Rocket */}
-        <div className="relative mb-8">
+        <div className="relative" style={{ marginBottom: 32 }}>
           <CelebrationMoon />
           <ArrivalBuzz />
         </div>
 
         {/* Title */}
-        <h1 className="font-display font-extrabold text-gold-400 text-4xl md:text-5xl mb-3">
+        <h1
+          className="font-display font-extrabold text-gold-400"
+          style={{ fontSize: "clamp(2.5rem, 5vw, 3.5rem)", marginBottom: 16 }}
+        >
           You reached the Moon!
         </h1>
 
         {/* Score summary */}
         {correctCount != null && totalCount != null && (
           <motion.p
-            className="text-muted text-xl md:text-2xl mb-2"
+            className="text-muted text-xl md:text-2xl"
+            style={{ marginBottom: 8 }}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.8, duration: 0.4 }}
@@ -156,7 +160,8 @@ export function Celebration({ onDone, correctCount, totalCount }: CelebrationPro
         )}
 
         <motion.p
-          className="text-muted text-xl md:text-2xl mb-8"
+          className="text-muted text-xl md:text-2xl"
+          style={{ marginBottom: 40 }}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.0, duration: 0.4 }}

@@ -103,9 +103,15 @@ export function CardInspectorScreen() {
     <div className="relative h-full flex flex-col overflow-hidden">
       <StarField />
 
-      <div className="relative z-10 flex flex-col h-full">
+      <div
+        className="relative z-10 flex flex-col h-full"
+        style={{ maxWidth: 900, margin: "0 auto", width: "100%" }}
+      >
         {/* Header */}
-        <div className="flex items-center px-5 py-4">
+        <div
+          className="flex items-center"
+          style={{ padding: "20px 24px 16px" }}
+        >
           <motion.button
             className="flex items-center justify-center rounded-full cursor-pointer"
             style={{
@@ -131,61 +137,68 @@ export function CardInspectorScreen() {
               <polyline points="15 18 9 12 15 6" />
             </svg>
           </motion.button>
-          <h1 className="flex-1 text-center font-display font-extrabold text-white text-2xl mr-11">
+          <h1
+            className="flex-1 text-center font-display font-extrabold text-white text-2xl"
+            style={{ marginRight: 44 }}
+          >
             Card Inspector
           </h1>
         </div>
 
-        {/* Summary bar */}
-        <div className="px-5 pb-4">
-          <div
-            className="rounded-2xl p-4 backdrop-blur-sm"
-            style={{
-              background: "rgba(37,43,74,0.5)",
-              border: "1px solid #363d5c",
-            }}
-          >
-            <div className="text-white font-display font-extrabold text-lg mb-3">
-              {cards.length} cards total
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {([State.New, State.Learning, State.Review, State.Relearning] as number[]).map((state) => (
-                <span
-                  key={state}
-                  className="px-3 py-1 rounded-full text-sm font-semibold"
-                  style={{
-                    background: `${STATE_COLORS[state]}20`,
-                    color: STATE_COLORS[state],
-                  }}
-                >
-                  {stateCounts[state]} {STATE_LABELS[state]}
-                </span>
-              ))}
-            </div>
+        {/* Summary + Sort row */}
+        <div
+          className="flex items-center justify-between"
+          style={{ padding: "0 24px 16px" }}
+        >
+          <div className="flex flex-wrap gap-2">
+            <span className="text-white font-display font-extrabold text-lg" style={{ marginRight: 8 }}>
+              {cards.length} cards
+            </span>
+            {([State.New, State.Learning, State.Review, State.Relearning] as number[]).map((state) => (
+              <span
+                key={state}
+                className="rounded-full text-xs font-semibold"
+                style={{
+                  background: `${STATE_COLORS[state]}20`,
+                  color: STATE_COLORS[state],
+                  padding: "4px 12px",
+                }}
+              >
+                {stateCounts[state]} {STATE_LABELS[state]}
+              </span>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            {(["note", "state", "success"] as SortMode[]).map((mode) => (
+              <button
+                key={mode}
+                className="rounded-lg text-sm font-semibold cursor-pointer"
+                style={{
+                  padding: "4px 12px",
+                  ...(sortMode === mode
+                    ? { background: "rgba(251,191,36,0.2)", color: "#FBBF24" }
+                    : { background: "rgba(42,48,80,0.5)", color: "#8890a8" }),
+                }}
+                onClick={() => setSortMode(mode)}
+              >
+                {mode === "note" ? "Note" : mode === "state" ? "State" : "Success %"}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Sort controls */}
-        <div className="flex gap-2 px-5 pb-3">
-          {(["note", "state", "success"] as SortMode[]).map((mode) => (
-            <button
-              key={mode}
-              className="px-3 py-1.5 rounded-lg text-sm font-semibold cursor-pointer transition-colors"
-              style={
-                sortMode === mode
-                  ? { background: "rgba(251,191,36,0.2)", color: "#FBBF24" }
-                  : { background: "rgba(42,48,80,0.5)", color: "#8890a8" }
-              }
-              onClick={() => setSortMode(mode)}
-            >
-              {mode === "note" ? "Note" : mode === "state" ? "State" : "Success %"}
-            </button>
-          ))}
-        </div>
-
-        {/* Card list */}
-        <div className="flex-1 overflow-y-auto px-5 pb-6">
-          <div className="flex flex-col gap-1.5">
+        {/* Card grid — two columns */}
+        <div
+          className="flex-1 overflow-y-auto"
+          style={{ padding: "0 24px 24px" }}
+        >
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 10,
+            }}
+          >
             {sortedCards.map((card) => (
               <CardRow key={card.noteId} card={card} stats={noteStats.get(card.noteId)} />
             ))}
@@ -207,37 +220,45 @@ function CardRow({ card, stats }: { card: AppCard; stats?: NoteStats }) {
 
   return (
     <div
-      className="flex items-center rounded-xl px-4 py-3"
+      className="flex items-center rounded-xl"
       style={{
         background: "rgba(37,43,74,0.35)",
         border: "1px solid rgba(54,61,92,0.5)",
+        padding: "10px 14px",
       }}
     >
       {/* Note name */}
-      <span className="font-display font-extrabold text-white text-lg w-14">
+      <span
+        className="font-display font-extrabold text-white"
+        style={{ fontSize: 16, width: 44 }}
+      >
         {name}
       </span>
 
       {/* State badge */}
       <span
-        className="px-2.5 py-0.5 rounded-full text-xs font-semibold mr-auto"
+        className="rounded-full text-xs font-semibold"
         style={{
           background: `${STATE_COLORS[stateNum]}20`,
           color: STATE_COLORS[stateNum],
+          padding: "2px 8px",
+          marginRight: "auto",
         }}
       >
         {STATE_LABELS[stateNum]}
       </span>
 
       {/* Reps */}
-      <span className="text-muted text-sm w-16 text-right">
+      <span className="text-muted text-xs" style={{ width: 48, textAlign: "right" }}>
         {card.reps} reps
       </span>
 
       {/* Success rate */}
       <span
-        className="text-sm font-semibold w-14 text-right"
+        className="text-xs font-semibold"
         style={{
+          width: 36,
+          textAlign: "right",
           color:
             successRate === null
               ? "#8890a8"
@@ -252,7 +273,7 @@ function CardRow({ card, stats }: { card: AppCard; stats?: NoteStats }) {
       </span>
 
       {/* Due status */}
-      <span className="text-muted text-xs w-16 text-right">
+      <span className="text-muted text-xs" style={{ width: 52, textAlign: "right" }}>
         {dueLabel(new Date(card.due))}
       </span>
     </div>

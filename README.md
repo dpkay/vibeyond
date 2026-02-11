@@ -4,12 +4,13 @@
 
 A gamified piano note recognition app that turns music practice into a space adventure. Built for a 5-year-old, powered by spaced repetition, and developed with [Claude Code](https://code.claude.com/docs/en/overview).
 
-<p align="center">
-  <img src="screenshots/01-home.png" width="70%" alt="Home screen — choose your mission" />
+<p>
+  <img src="screenshots/01-notes-accidentals.png" width="48%" alt="Note reading with accidentals" />
+  <img src="screenshots/02-animal-session.png" width="48%" alt="Animal octave mission" />
 </p>
 <p>
-  <img src="screenshots/02-animal-session.png" width="48%" alt="Animal octave mission" />
-  <img src="screenshots/03-notes-session.png" width="48%" alt="Note reading mission" />
+  <img src="screenshots/03-home.png" width="48%" alt="Home screen" />
+  <img src="screenshots/04-celebration.png" width="48%" alt="Celebration" />
 </p>
 
 ## The Origin Story
@@ -27,7 +28,7 @@ Under the hood, [FSRS](https://github.com/open-spaced-repetition/ts-fsrs) (Free 
 ## Missions
 
 ### Animal Octaves
-An animal appears on screen (Elephant, Penguin, Hedgehog, or Mouse -- each mapped to an octave). Tap the matching octave button overlaid on the piano. Each animal plays a characteristic chord when selected. Animal icons on the buttons can be toggled on/off for difficulty.
+During initial user testing, Luca's 3-year-old brother Elio got jealous and demanded his own turn. The note-reading mission was too advanced for him, so I created a simplified mode: an animal appears on screen (Elephant, Penguin, Hedgehog, or Mouse -- each mapped to an octave) and you tap the matching octave button overlaid on the piano. Each animal plays a characteristic chord when selected. Animal icons on the buttons can be toggled on/off for difficulty.
 
 ### Note Reading
 A note appears on the treble or bass clef staff. Identify it by tapping the correct key on the piano. Configurable options directly on the home screen:
@@ -67,16 +68,18 @@ A note appears on the treble or bass clef staff. Identify it by tapping the corr
 | Local database | Dexie.js (IndexedDB) |
 | PWA | vite-plugin-pwa (Workbox) |
 
-## Getting Started
+## Try It
+
+The app is live and continuously updated at **https://vibeyond.vercel.app/**. Install it as a PWA from Safari (iPad/iPhone) or Chrome (Android/desktop) using "Add to Home Screen" — it works offline once installed and auto-updates when a new version is deployed.
+
+## Building from Source
 
 ```bash
 npm install
 npm run dev
 ```
 
-The dev server starts on `http://localhost:5173`.
-
-To access from another device on your network (e.g. an iPad):
+The dev server starts on `http://localhost:5173`. To access from another device on your network (e.g. an iPad):
 
 ```bash
 npm run dev -- --host
@@ -96,10 +99,6 @@ npm run preview
 ```bash
 npm test
 ```
-
-### Installing as a PWA
-
-Open the app in Safari (iPad/iPhone) or Chrome (Android/desktop), then use "Add to Home Screen" or the install prompt. The app works offline once installed and auto-updates when a new version is deployed.
 
 ### Parent Settings
 

@@ -4,7 +4,7 @@
 
 Vibeyond is a gamified music recognition app designed for young children (ages 3-6). It supports multiple missions ranging from octave recognition for pre-readers to full staff sight-reading for beginning piano students. The app is wrapped in a space-themed adventure where Buzz Lightyear flies toward the Moon, making repetitive practice feel like play.
 
-It is built as an offline-first Progressive Web App so it works seamlessly during travel and on airplanes.
+It is built as an offline-first Progressive Web App (PWA) so it works seamlessly during travel and on airplanes. The iPad is the primary device.
 
 ## Goals
 
@@ -102,10 +102,10 @@ The card pool key (used as the `missionId` in the database) is derived from the 
 - **As a child**, I am shown items I struggle with more frequently so I improve where I need it most.
 - **As a child**, items I've mastered appear less often so practice doesn't feel boring.
 
-### Hints
-- **As Luca**, I can tap a hint button (Woody) to get help when I'm stuck, so I can learn the answer instead of guessing randomly.
-- **As Luca**, I see a familiar mnemonic (like "FACE" or "Every Good Bird Deserves Fun") with the relevant letter highlighted, so I build long-term memory aids.
-- **As Luca**, using a hint costs one step of progression (Buzz moves back), so I'm motivated to try on my own first.
+### Hints (Notes mission only)
+- **As Luca**, I can tap a Woody character button to get help when I'm stuck, so I can learn the answer instead of guessing randomly.
+- **As Luca**, I see a familiar mnemonic (like "FACE" or "Every Good Bird Deserves Fun") for the correct note's staff position (line or space), so I build long-term memory aids. For accidentals, the hint adds "with a sharp" or "with a flat".
+- **As Luca**, using a hint costs one step of progression (Buzz moves back), but only the first use per challenge is penalized, so I'm motivated to try on my own first.
 
 ### Card Inspector (Parent)
 - **As a parent**, I can see every card in the system with its FSRS state so I understand exactly what Luca is practicing.
@@ -132,31 +132,38 @@ This separation keeps the code simple and testable. If we ever want to add new l
 
 ## Features
 
-### P0 — MVP
+### P0 — MVP (DONE)
 
-| Feature | Description |
-|---|---|
-| **Two-mission home screen** | Flat home screen with two cards: Animals (tap to play) and Notes (inline clef/accidentals toggles + Play). No multi-step navigation. Toggle state persisted to DB. |
-| **Animals mission** | Pre-reader mission: shows animal pictures, child taps animal buttons overlaid on the piano keyboard. 4 FSRS cards total. Pressing a button plays the C of that octave. |
-| **Notes mission** | Configurable note-reading mission. Parent toggles Treble/Bass/Accidentals on the home screen. Each toggle combination produces its own FSRS card pool with independent progress. |
-| **Staff display** | Renders a single note on treble and/or bass clef staff (clef determined by note). Clean, large, easy to read for a young child. |
-| **On-screen piano** | A playable piano keyboard with large, tactile buttons. Plays a piano sample on tap for audio feedback. Also serves as visual backdrop for Animals mode. |
-| **Answer evaluation** | Compares the tapped key to the displayed note using enharmonic-aware matching (e.g. C# = Db, E# = F). For Animals mode, compares the tapped octave to the correct octave. Provides immediate visual and audio feedback (correct/incorrect). |
-| **Buzz Lightyear progression** | Buzz starts at the left of the screen and advances toward the Moon on correct answers. Moves backward on incorrect answers. Uses floor-at-zero scoring (mistakes never create negative debt). Reaching the Moon triggers a celebration. |
-| **Spaced repetition engine** | Tracks mastery per card using FSRS. Each mission/configuration has its own independent card pool. Schedules reviews based on difficulty and error history. |
-| **Parent settings** | A parent-accessible settings screen to configure session length and keyboard display range. |
-| **Galactic theme** | Warm, cozy space-themed UI (Pixar's La Luna feel) with stars, parallax effects, and a golden amber accent palette. Large buttons, bouncy animations, designed to feel like a premium digital toy. |
+All P0 features are implemented and functional.
 
-### P1 — Fast Follow
+| Feature | Status | Description |
+|---|---|---|
+| **Two-mission home screen** | Done | Flat home screen with two cards: Animals (with Show Icons toggle + Play) and Notes (inline Treble/Bass/Accidentals toggles + Play). Toggle state persisted to DB. Settings gear in top-right corner. Build stamp in bottom-right. |
+| **Animals mission** | Done | Pre-reader mission: shows Pixar-style animal pictures (PNG), child taps animal buttons overlaid on the piano keyboard. 4 FSRS cards total (octaves 2-5). Pressing a button plays a characteristic chord for that animal's octave. Show Icons toggle allows hiding icons for harder mode. |
+| **Notes mission** | Done | Configurable note-reading mission. Parent toggles Treble/Bass/Accidentals on the home screen. Each toggle combination produces its own FSRS card pool with independent progress. Per-clef ranges used in treble+bass mode (treble: C4-A5, bass: E2-C4). |
+| **Staff display** | Done | Renders a single note on treble or bass clef staff using VexFlow 5 SVG backend. Gold notehead with glow filter, translucent white staff lines on dark background. 2x scale for child-friendly readability. |
+| **On-screen piano** | Done | Realistic black+white piano keyboard with no labels. Plays Salamander Grand Piano samples on tap (with PolySynth fallback while loading). Range is parent-configurable (default C2-B5). Gold flash on key press. Decorative fog/ledge layers for physical piano feel. |
+| **Answer evaluation** | Done | Enharmonic-aware matching (semitone comparison) for Notes mode. Octave-only comparison for Animals mode. Immediate visual feedback (gold star burst for correct, red X shake for incorrect). |
+| **Buzz Lightyear progression** | Done | Horizontal progress bar with Buzz flying left-to-right toward a crescent Moon. Gold dot milestones along the track. Spring-animated fill bar. Floor-at-zero scoring. Score displayed below Buzz, session length below Moon. |
+| **Spaced repetition engine** | Done | FSRS via ts-fsrs with child-tuned parameters (0.95 retention, 30-day max interval, fuzzing enabled). Binary rating (Good/Again). New-card rate limiting (2 per session). Random tie-breaking for equally-due cards. |
+| **Parent settings** | Done | Settings screen with session length stepper (5-30), note range display, Card Inspector link, and two-step Reset Data confirmation. 2-column card grid layout. |
+| **Galactic theme** | Done | Warm space-themed UI with 3-layer parallax starfield (195 stars, seeded PRNG for deterministic layout), nebula glow layers, golden amber accent palette (#FBBF24), Nunito display font + Inter body font. Framer Motion spring animations throughout. |
+| **Hint system** | Done | Woody character button on session screen (Notes mission only). Shows contextual mnemonic overlays for the current note's staff position. Treble lines: "Every Good Bird Deserves Fun (Always)", treble spaces: "(Dogs) FACE (Gorillas)", bass lines: "(Extra) Good Bagels Deserve Fresh Avocado", bass spaces: "(Funny!) All Cows Eat Grass (Burp!)". Parenthesized words are dimmed (for ledger-line notes). Accidentals get "with a sharp/flat" annotation. Costs one progression step (first use per challenge only). Auto-dismisses after 4 seconds. |
+| **Card Inspector** | Done | Dedicated `/cards` screen accessible from Settings. Mission filter tabs, summary bar with state breakdown badges (New/Learning/Review/Relearning), 2-column card grid. Each card shows note name, FSRS state badge, rep count, success rate, and due status. Sortable by note order, state, or success rate. |
+| **Celebration screen** | Done | Full-screen overlay on session completion. Large crescent moon with Buzz arrival animation, rising gold confetti particles (3 shades), score summary, "Amazing job!" text, delayed "Play Again!" button (2.5s). Choreographed staggered animations. |
+| **PWA / Offline support** | Done | vite-plugin-pwa with autoUpdate service worker. Web app manifest (standalone, landscape orientation, 192px + 512px icons). Workbox pre-caches all static assets (JS, CSS, HTML, images, audio, fonts). Apple mobile web app meta tags for iOS. |
+| **iOS safe area handling** | Done | `viewport-fit=cover` meta tag with `env(safe-area-inset-*)` padding on #root for proper display on iPads with notch/home indicator. |
+| **Build stamp versioning** | Done | Git hash + timestamp build ID (`YYYYMMDD_HHMM_<hash>`) injected at build time via Vite `define`. Displayed on home screen bottom-right corner. |
+| **DB error recovery** | Done | Graceful error dialog when IndexedDB fails to load (e.g. after schema changes). Offers one-click "Reset & Reload" to delete and recreate the database. |
+| **Audio system** | Done | Salamander Grand Piano samples loaded from Tone.js CDN (sparse sampling, pitch-shifted by Tone.Sampler). PolySynth fallback during async load. Mute toggle on session screen. Animal mode plays characteristic chords per octave. |
+
+### P1 — Future
 
 | Feature | Description |
 |---|---|
 | **Note sequences** | Display multiple notes on the staff that the child must play in order. All notes must be played correctly in sequence to score. Builds sight-reading fluency beyond single-note recognition. Could become its own mission. |
-| **Session summary** | After completing a session (reaching the Moon), show a summary of how many notes were attempted, accuracy, and which notes were hardest. |
-| **Hint system** | A Woody icon button on the session screen. Tapping it reveals a contextual mnemonic hint for the current note and moves Buzz back one step (cost for using it). Treble clef spaces: "FACE", treble clef lines: "Every Good Bird Deserves Fun". Bass clef spaces: "All Cows Eat Grass", bass clef lines: "Good Boys Do Fine Always". The relevant letter is highlighted. For accidentals, the hint shows the mnemonic for the natural note plus "with a sharp/flat". For ledger line notes outside the staff, a simpler positional hint (e.g. "One line below the staff = C"). |
-| **Card Inspector** | A dedicated `/cards` screen accessible from Settings. Shows FSRS cards filtered by mission/configuration with a summary bar (total count, breakdown by state). Each card row displays the note name, FSRS state badge, rep count, success rate, and due status. Sortable by note order, state, or success rate. |
-| **Offline support** | All assets (code, piano samples, images) are pre-cached via service worker. The app is fully functional with no network connection. |
-| **Difficulty progression** | Start with a small set of notes (e.g. Middle C through G in treble clef) and gradually unlock more notes as mastery is demonstrated. |
+| **Session summary** | After completing a session, show a detailed summary of which notes were attempted, accuracy per note, and which notes were hardest. (Currently the celebration screen shows a basic correct/total count.) |
+| **Difficulty progression** | Start with a small set of notes and gradually unlock more notes as mastery is demonstrated. |
 | **Per-mission settings** | Allow parents to configure session length and other parameters independently for each mission/configuration. |
 
 ### P2 — Future

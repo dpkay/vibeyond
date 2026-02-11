@@ -28,75 +28,98 @@ graph TD
         B2[OctaveButtons overlay]
         C[ProgressionBar]
         D[FeedbackOverlay]
+        D2[HintOverlay]
+        D3[Celebration]
+        SF[StarField]
+    end
+
+    subgraph "Zustand Stores"
+        SS[sessionStore]
+        CS[cardStore]
+        SET[settingsStore]
     end
 
     subgraph Logic
-        E[SessionManager]
-        F[Scheduler - FSRS]
-        G[Progression]
-        M[MissionResolver]
+        F[scheduler.ts - FSRS]
+        G[progression.ts]
+        EV[evaluate.ts]
+        H[hints.ts]
+        M[missions.ts]
     end
 
     subgraph Persistence
-        H[Dexie - IndexedDB]
+        DB[Dexie - IndexedDB]
     end
 
-    M -- resolves config to MissionId --> E
-    E -- picks next card --> F
-    E -- updates progress --> G
-    F -- reads/writes cards --> H
-    E -- logs sessions --> H
-    A -- displays note --> E
-    A2 -- displays animal --> E
-    B -- sends key press --> E
-    B2 -- sends octave tap --> E
-    E -- drives --> C
-    E -- triggers --> D
+    M -- resolves config to MissionId --> SS
+    SS -- picks next card --> F
+    SS -- updates progress --> G
+    SS -- evaluates answer --> EV
+    CS -- reads/writes cards --> DB
+    SS -- logs sessions --> DB
+    SET -- reads/writes settings --> DB
+    A -- displays note --> SS
+    A2 -- displays animal --> SS
+    B -- sends key press --> SS
+    B2 -- sends octave tap --> SS
+    SS -- drives --> C
+    SS -- triggers --> D
+    D2 -- shows mnemonic --> H
 ```
 
-**UI layer** — React components for prompts (staff display, animal prompt), inputs (piano keyboard, octave buttons overlay), progression bar, and feedback animations. These receive data and fire callbacks; they don't manage session state.
+**UI layer** — React components for prompts (staff display, animal prompt), inputs (piano keyboard, octave buttons overlay), progression bar, feedback animations, hint overlays, celebration screen, and parallax starfield. These receive data and fire callbacks; they don't manage session state.
 
-**Logic layer** — The session manager orchestrates the core loop. A mission resolver derives the MissionId and card pool from the user's mission + toggle configuration. The FSRS scheduler operates on per-MissionId card pools. Pure functions and Zustand stores, no UI.
+**Store layer** — Three Zustand stores orchestrate state:
+- `sessionStore` — Session lifecycle, phase machine (idle/playing/feedback/complete), hint state, scoring. Calls into logic functions and other stores.
+- `cardStore` — Mission-scoped FSRS card pools. `ensureCardsForMission` seeds new cards and prunes stale ones.
+- `settingsStore` — Settings persistence with forward-compatible merging of compile-time defaults.
 
-**Persistence layer** — Dexie wrapping IndexedDB. Stores FSRS cards (keyed by MissionId + note ID), session history, settings, and the Notes toggle state. No backend, no network calls.
+**Logic layer** — Pure functions with no side effects: FSRS scheduling (`scheduler.ts`), answer evaluation (`evaluate.ts`), progression calculation (`progression.ts`), mnemonic hints (`hints.ts`), note utilities (`noteUtils.ts`), and mission resolution (`missions.ts`).
+
+**Persistence layer** — Dexie wrapping IndexedDB. Stores FSRS cards (keyed by MissionId + note ID), session history, and settings (as JSON key-value). No backend. The only external network request is loading piano samples from the Tone.js CDN (cached by service worker).
 
 ### React Component Tree
 
 ```mermaid
 graph TD
-    App --> SettingsProvider
-    SettingsProvider --> Router
+    App --> AppLoader
+    AppLoader --> Router
     Router --> HomeScreen["HomeScreen (mission picker)"]
-    Router --> SessionScreen
-    Router --> SessionSummaryScreen["SessionSummaryScreen (P1)"]
-    Router --> ParentSettingsScreen
-    Router --> CardInspectorScreen
+    Router --> SessionScreen["/play/:missionId"]
+    Router --> ParentSettingsScreen["/settings"]
+    Router --> CardInspectorScreen["/cards"]
+    Router --> Celebration["/celebrate (dev)"]
     SessionScreen --> ProgressionBar
     SessionScreen -->|staff missions| StaffDisplay
     SessionScreen -->|animal mission| AnimalPrompt
     SessionScreen --> FeedbackOverlay
+    SessionScreen --> HintOverlay
     SessionScreen -->|staff missions| PianoKeyboard
     SessionScreen -->|animal mission| OctaveButtons
+    SessionScreen --> StarField["StarField (parallax)"]
 ```
+
+`AppLoader` hydrates Zustand stores from IndexedDB on startup. If IndexedDB fails, a `DbErrorDialog` offers a one-click reset. Three decorative nebula `<div>` layers are rendered behind the router for the cosmic background glow.
 
 ---
 
 ## Tech Stack
 
-| Concern | Choice | Rationale |
-|---|---|---|
-| Framework | React 19 + TypeScript | Component model fits UI layer; strong typing for data model |
-| Build tool | Vite | Fast dev server, native TS/TSX support, easy PWA plugin |
-| Styling | Tailwind CSS | Utility-first, rapid iteration, small bundle with purging |
-| Animations | Framer Motion | Declarative spring animations for bouncy, toy-like feel |
-| Music notation | VexFlow | Staff rendering with correct note placement; may fall back to custom SVG if too inflexible |
-| Audio | Tone.js + `tonejs-instrument-piano-mp3` | Low-latency playback via Web Audio API; MIT-licensed samples pre-split by note (~10-15 MB) |
-| Spaced repetition | ts-fsrs | TypeScript FSRS implementation; proven algorithm, tunable parameters |
-| State management | Zustand | Minimal boilerplate, works well with React; simpler than Redux, more capable than Context for cross-cutting state |
-| Persistence | Dexie.js (IndexedDB) | Typed IndexedDB wrapper; reactive queries, simple migrations |
-| PWA | vite-plugin-pwa | Service worker generation, asset pre-caching, offline support (P1) |
-| Testing | Vitest + React Testing Library | Fast, Vite-native test runner with familiar React testing patterns |
-| Linting | ESLint + Prettier | Standard code quality tooling |
+| Concern | Choice | Version | Rationale |
+|---|---|---|---|
+| Framework | React + TypeScript | React 18.3, TS 5.6 | Component model fits UI layer; strong typing for data model |
+| Build tool | Vite | 5.4 | Fast dev server, native TS/TSX support, easy PWA plugin |
+| Styling | Tailwind CSS | 4.1 | Utility-first via `@theme` directive in CSS, rapid iteration, small bundle with purging |
+| Animations | Framer Motion | 12.33 | Declarative spring animations for bouncy, toy-like feel |
+| Music notation | VexFlow | 5.0 | Staff rendering with correct note placement on treble and bass clefs |
+| Audio | Tone.js (Salamander Grand Piano samples) | 15.1 | Sampler loads real piano samples from Tone.js CDN with PolySynth fallback during async load |
+| Spaced repetition | ts-fsrs | 5.2 | TypeScript FSRS implementation; child-tuned parameters (0.95 retention, 30-day max) |
+| State management | Zustand | 5.0 | Minimal boilerplate, works well with React; simpler than Redux, more capable than Context for cross-cutting state |
+| Persistence | Dexie.js (IndexedDB) | 4.3 | Typed IndexedDB wrapper; simple migrations |
+| Routing | React Router DOM | 7.13 | Client-side routing with URL params for mission IDs |
+| PWA | vite-plugin-pwa | 1.2 | Service worker generation via Workbox, autoUpdate registration, asset pre-caching for offline support |
+| Testing | Vitest + React Testing Library | Vitest 4.0 | Fast, Vite-native test runner (no tests written yet) |
+| Linting | ESLint + Prettier | ESLint 9, Prettier 3.8 | Standard code quality tooling |
 
 ---
 
@@ -104,79 +127,80 @@ graph TD
 
 ### Core Entities
 
-```typescript
-/**
- * MissionId is a string key derived from the play mode + configuration.
- * - Animals mission: "animal-octaves"
- * - Notes mission: "notes:<clefs>[:<acc>]"
- *   e.g. "notes:treble", "notes:bass", "notes:treble+bass",
- *        "notes:treble:acc", "notes:bass:acc", "notes:treble+bass:acc"
- *
- * This key is used as the card pool scope and session tag.
- */
-type MissionId = string;
+All types are defined in `src/types.ts`.
 
-/**
- * The user's Notes mission toggle state. Persisted to settings DB
- * so the home screen remembers the last configuration.
- */
+```typescript
+type MissionId = string;
+// "animal-octaves" for Animals, or "notes:<clefs>[:<acc>]" for Notes.
+// e.g. "notes:treble", "notes:bass", "notes:treble+bass:acc"
+
+interface AnimalsConfig {
+  showIcons: boolean;        // toggle animal icons on octave buttons
+}
+
 interface NotesConfig {
   treble: boolean;           // include treble clef notes
   bass: boolean;             // include bass clef notes
   accidentals: boolean;      // include sharps/flats
 }
 
-/** A musical note identified by its pitch name, accidental, octave, and clef. */
 interface Note {
   pitch: "C" | "D" | "E" | "F" | "G" | "A" | "B";
   accidental: "sharp" | "flat" | "natural";
-  octave: number;           // e.g. 4 for middle C
+  octave: number;            // e.g. 4 for middle C
   clef: "treble" | "bass";
 }
 
-/** Unique string key for a note, e.g. "treble:C:natural:4" */
-type NoteId = string;
+type NoteId = string;        // "treble:C:natural:4"
 
-/**
- * An FSRS card wrapping a learnable item. Scoped to a MissionId so that
- * each mode/configuration tracks its own independent progress.
- */
 interface AppCard extends FSRSCard {
-  id: string;               // compound PK: "${missionId}::${noteId}"
-  noteId: NoteId;           // the note (or octave root) this card represents
-  missionId: MissionId;     // which mission/config this card belongs to
+  id: string;                // compound PK: "${missionId}::${noteId}"
+  noteId: NoteId;
+  missionId: MissionId;
 }
 
-/** A single challenge within a session. */
 interface Challenge {
-  promptNote: Note;          // the note shown (or octave for animal mode)
-  responseNote: Note | null; // the key/button the user pressed (null if unanswered)
+  promptNote: Note;
+  responseNote: Note | null;
   correct: boolean | null;
   responseTimeMs: number | null;
   timestamp: Date;
 }
 
-/** A complete play-through from start to celebration (or quit). */
 interface Session {
   id: string;
-  missionId: MissionId;     // which mission/config this session was played in
+  missionId: MissionId;
   startedAt: Date;
   completedAt: Date | null;
   challenges: Challenge[];
   totalCorrect: number;
   totalIncorrect: number;
-  score: number;             // running score with floor-at-zero semantics
-  completed: boolean;        // true if Buzz reached the Moon
+  score: number;              // floor-at-zero semantics
+  completed: boolean;
 }
 
-/** Parent-configurable settings. */
 interface Settings {
   noteRange: {
-    minNote: Note;           // keyboard display range (visual only)
+    minNote: Note;            // keyboard display range (default C2-B5)
     maxNote: Note;
   };
-  sessionLength: number;     // correct answers needed to reach Moon
-  notesConfig: NotesConfig;  // last-used Notes mission toggles (persisted)
+  sessionLength: number;      // correct answers needed to reach Moon (default 20)
+  animalsConfig: AnimalsConfig;
+  notesConfig: NotesConfig;
+}
+
+/** Static definition of a mission (code-only, not persisted). */
+interface MissionDefinition {
+  id: MissionId;
+  name: string;
+  description: string;
+  promptType: "staff" | "animal";
+  inputType: "piano" | "octave-buttons";
+  enabledClefs: ("treble" | "bass")[];
+  includeAccidentals: boolean;
+  challengeRange: { minNote: Note; maxNote: Note };
+  perClefRanges?: Record<string, { minNote: Note; maxNote: Note }>;
+  defaultSessionLength: number;
 }
 ```
 
@@ -215,76 +239,105 @@ When a session starts, cards are seeded for the resolved MissionId:
 
 ```typescript
 const db = new Dexie("VibeyondDB");
-db.version(3).stores({
+
+// Version 1: original schema (cards keyed by noteId, no missionId)
+db.version(1).stores({
+  cards: "noteId, due, state",
+  sessions: "id, startedAt",
+  settings: "key",
+});
+
+// Version 2: mission-scoped cards with compound PK
+db.version(2).stores({
   cards: "id, noteId, missionId, due, state",  // id = "${missionId}::${noteId}"
   sessions: "id, missionId, startedAt",
   settings: "key",
-});
+}).upgrade((tx) => tx.table("cards").clear());  // wipe v1 cards (wrong PK)
 ```
+
+Settings are stored as a single JSON-serialized row keyed by `"appSettings"`. New settings fields are forward-compatible: on load, stored values are shallow-merged with compile-time defaults so newly added fields get sensible values without a DB migration.
 
 ---
 
 ## Key Functions
 
-The core logic is a set of plain functions and a Zustand store — no abstract interfaces or plugin system.
+The core logic is a set of plain functions — no abstract interfaces or plugin system. All are pure (no side effects, no store dependencies).
+
+### `logic/evaluate.ts`
 
 ```typescript
-/** Convert a note to absolute semitone value for enharmonic comparison. */
-function noteToSemitone(note: Note): number {
-  const SEMITONES = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
-  let semi = note.octave * 12 + SEMITONES[note.pitch];
-  if (note.accidental === "sharp") semi += 1;
-  if (note.accidental === "flat") semi -= 1;
-  return semi;
-}
+/** Enharmonic-aware note comparison (C# = Db, E# = F, etc.). */
+function evaluateAnswer(prompt: Note, response: Note): EvalResult;
+
+/** Octave-only comparison for Animals mission. */
+function evaluateOctaveAnswer(prompt: Note, responseOctave: number): EvalResult;
+```
+
+### `logic/scheduler.ts`
+
+```typescript
+/** Create a compound card ID: "${missionId}::${noteId}". */
+function cardId(missionId: MissionId, noteId: NoteId): string;
+
+/** Mint a new FSRS card for a note. Starts in state New, due immediately. */
+function createCard(noteId: NoteId, missionId: MissionId): AppCard;
+
+/** Review a card: maps correct→Rating.Good, incorrect→Rating.Again. */
+function reviewCard(card: AppCard, correct: boolean): AppCard;
 
 /**
- * Evaluate whether the pressed key matches the displayed note.
- * Uses enharmonic-aware matching: C# = Db, E# = F, etc.
+ * Select next card from pool. Priority: due cards (random tie-break) →
+ * new cards (if under maxNewPerSession cap) → soonest-due fallback.
  */
-function evaluateAnswer(prompt: Note, response: Note): {
-  correct: boolean;
-  feedback?: { expected: string; actual: string };
-} {
-  const correct = noteToSemitone(prompt) === noteToSemitone(response);
-  return {
-    correct,
-    feedback: correct ? undefined : {
-      expected: noteToString(prompt),
-      actual: noteToString(response),
-    },
-  };
-}
+function selectNextCard(
+  cards: AppCard[],
+  newCardsSeenThisSession: number,
+  maxNewPerSession?: number,  // default 2
+): AppCard | null;
+```
 
-/** Pick the next note to show based on FSRS scheduling. */
-function selectNextCard(cards: Card[]): Card {
-  // Cards due soonest come first; new cards mixed in
-  return cards.sort((a, b) => a.due.getTime() - b.due.getTime())[0];
-}
+### `logic/progression.ts`
 
-/**
- * Generate note range including all accidentals.
- * For each natural in the range, generates the natural plus its sharp and flat.
- * Includes theoretical accidentals (E#, Fb, B#, Cb) so every enharmonic
- * spelling is a separate card. Range bounds use semitone comparison.
- */
-function noteRange(min: Note, max: Note, clef: string): Note[] {
-  // Iterates all pitches × accidentals, filters by semitone range
-}
-
-/** Update a card after a review using ts-fsrs. */
-function reviewCard(card: Card, correct: boolean): Card {
-  // Wraps ts-fsrs scheduling logic, using child-tuned parameters below
-}
-
+```typescript
 /** Calculate Buzz's position (0–1) from the session's running score. */
-function calculateProgression(
-  score: number,
-  sessionLength: number,
-): number {
-  // score / sessionLength, clamped to [0, 1]
-  // Score uses floor-at-zero: correct +1, incorrect max(0, score-1)
+function calculateProgression(score: number, sessionLength: number): number;
+
+/** Check if score has reached sessionLength. */
+function isSessionComplete(score: number, sessionLength: number): boolean;
+```
+
+### `logic/hints.ts`
+
+```typescript
+interface Hint {
+  label: string;           // "Lines" or "Spaces"
+  mnemonic: string;        // e.g. "Every Good Bird Deserves Fun (Always)"
+  accidentalNote: string | null;  // "with a sharp" / "with a flat" / null
 }
+
+/** Get the contextual mnemonic hint for a note's staff position. */
+function getHint(note: Note): Hint;
+```
+
+### `logic/noteUtils.ts`
+
+```typescript
+function noteToId(note: Note): NoteId;         // "treble:C:natural:4"
+function noteFromId(id: NoteId): Note;          // parse back
+function noteToSemitone(note: Note): number;    // absolute pitch for comparison
+function notesMatch(a: Note, b: Note): boolean; // enharmonic semitone equality
+function noteRange(min: Note, max: Note, clef: string): Note[]; // all notes in range
+function noteToString(note: Note): string;      // human-readable "C4", "F#5"
+```
+
+### `missions.ts`
+
+```typescript
+/** Derive a stable MissionId from NotesConfig toggles. */
+function notesConfigToMissionId(config: NotesConfig): MissionId;
+
+/** Resolve a MissionId to its full MissionDefinition (static for animals, dynamic for notes). */
+function resolveMission(id: MissionId): MissionDefinition;
 ```
 
 ### FSRS Configuration
@@ -292,27 +345,25 @@ function calculateProgression(
 Default FSRS parameters are calibrated for adult Anki users. A 5-year-old needs higher success rates (motivation), shorter initial intervals (weaker working memory for abstract symbols), and a capped maximum interval (notes should never fully disappear).
 
 ```typescript
-import { FSRS, GeneratorParameters } from 'ts-fsrs';
+import { fsrs, generatorParameters } from 'ts-fsrs';
 
-const params = new GeneratorParameters();
-params.request_retention = 0.95; // Default 0.9 — higher keeps success rate up for morale
-params.maximum_interval = 30;    // Default 36500 — cap at 30 days so mastered notes still recur
-params.w = [
-  0.1, 0.2, 0.5, 1.0,           // Initial stability: much shorter than defaults [0.4, 0.6, 2.4, 5.8]
-  4.5, 0.1, 1.0, 0.5,           // Difficulty parameters
-  0.4, 0.15, 1.4,               // Interval modifiers
-  0.2, 0.3, 0.4, 1.0, 0.5      // Retention/weights
-];
+const params = generatorParameters({
+  request_retention: 0.95,    // Default 0.9 — higher keeps success rate up for morale
+  maximum_interval: 30,       // Default 36500 — cap at 30 days so mastered notes still recur
+  enable_fuzz: true,          // Random jitter so reviews don't cluster on the same day
+  enable_short_term: true,    // Sub-day intervals for new/learning cards
+});
 
-const fsrs = new FSRS(params);
+const scheduler = fsrs(params);
 ```
 
 **Rationale:**
 - **0.95 retention** — A 5% failure rate instead of 10%. Keeps Buzz moving forward more often, building a positive feedback loop.
-- **Short initial stability** `[0.1, 0.2, 0.5, 1.0]` — New notes reappear within the same session or by the next day, not after a week.
 - **30-day max interval** — Even mastered notes pop up monthly as easy wins.
+- **Binary rating** — Only `Rating.Good` (correct) and `Rating.Again` (incorrect) are used. A 5-year-old's answer is binary: either they pressed the right key or they didn't.
+- **Fuzzing** — Small random jitter prevents all reviews clustering on the same day.
 
-**Session guardrail:** Limit new notes to ~2 per session. FSRS can aggressively introduce new material when the learner is doing well, but physical finger-mapping needs more time than mental recognition.
+**Session guardrail:** New-card introduction is rate-limited to 2 per session (`maxNewPerSession`). When selecting the next card, due cards are prioritized with random tie-breaking among equally-due cards (within 1 minute). If no cards are due and the new-card cap is reached, the soonest-due card is picked as a fallback.
 
 ---
 
@@ -325,50 +376,56 @@ vibeyond/
 │   ├── TDD.md
 │   ├── UX-SPEC.md
 │   └── RETENTION.md
+├── mocks/                       # Visual design mockups (PSD, PNG)
+├── screenshots/                 # Automated screenshots (Puppeteer)
+│   └── capture.cjs
 ├── public/
-│   ├── buzz.png                # Buzz Lightyear character image
-│   ├── animals/                # Animal illustrations for octave mission
-│   │   ├── elephant.svg
-│   │   ├── penguin.svg
-│   │   ├── hedgehog.svg
-│   │   └── mouse.svg
-│   └── samples/                # Piano audio samples (mp3/ogg)
+│   ├── buzz.png                 # Buzz Lightyear character image
+│   ├── woody.png                # Woody character image (hint button)
+│   ├── elephant.png             # Pixar-style animal illustrations (PNG)
+│   ├── penguin.png
+│   ├── hedgehog.png
+│   ├── mouse.png
+│   ├── icon-192.png             # PWA icon (192x192)
+│   ├── icon-512.png             # PWA icon (512x512)
+│   └── favicon.ico
 ├── src/
-│   ├── main.tsx                # Entry point
-│   ├── App.tsx                 # Router + providers
-│   ├── types.ts                # Shared type definitions
-│   ├── missions.ts                # Mission registry (static mission definitions)
-│   ├── logic/                  # Core logic (no UI)
-│   │   ├── progression.ts      # Buzz → Moon progress calculation
-│   │   ├── scheduler.ts        # FSRS scheduling wrapper
-│   │   ├── evaluate.ts         # Answer evaluation (note + octave)
-│   │   └── noteUtils.ts        # noteToId, noteFromId, noteRange, etc.
-│   ├── components/             # React components
-│   │   ├── StaffDisplay.tsx    # VexFlow staff rendering
-│   │   ├── PianoKeyboard.tsx   # On-screen piano (staff missions)
-│   │   ├── OctaveButtons.tsx   # 4 large animal buttons (animal mission)
-│   │   ├── AnimalPrompt.tsx    # Animal picture display (animal mission)
-│   │   ├── useAudio.ts         # Tone.js hook for key sounds
-│   │   ├── ProgressionBar.tsx  # Buzz Lightyear → Moon
-│   │   ├── FeedbackOverlay.tsx # Correct/incorrect animations
-│   │   ├── Celebration.tsx     # Moon-reached celebration
-│   │   └── StarField.tsx       # Background starfield animation
-│   ├── screens/                # Top-level route screens
-│   │   ├── HomeScreen.tsx      # Mission picker
-│   │   ├── SessionScreen.tsx   # Core gameplay (adapts per mission)
-│   │   ├── CardInspectorScreen.tsx
-│   │   └── ParentSettingsScreen.tsx
-│   ├── store/                  # Zustand stores
-│   │   ├── sessionStore.ts     # Mission-aware session management
-│   │   ├── cardStore.ts        # Mission-scoped FSRS card pools
-│   │   └── settingsStore.ts
-│   ├── db/                     # Dexie database setup + queries
-│   │   └── db.ts
-│   └── styles/
-│       └── index.css           # Tailwind directives + custom theme
-├── index.html
-├── vite.config.ts
-├── vitest.config.ts
+│   ├── main.tsx                 # Entry point (StrictMode + root mount)
+│   ├── App.tsx                  # Router + AppLoader + DbErrorDialog + nebula layers
+│   ├── index.css                # Tailwind @theme directive, nebula/star CSS animations, safe area insets
+│   ├── types.ts                 # Shared type definitions (all core domain types)
+│   ├── missions.ts              # Mission registry + notesConfigToMissionId + resolveMission
+│   ├── logic/                   # Pure business logic (no UI)
+│   │   ├── progression.ts       # calculateProgression + isSessionComplete
+│   │   ├── scheduler.ts         # FSRS wrapper (createCard, reviewCard, selectNextCard)
+│   │   ├── evaluate.ts          # evaluateAnswer + evaluateOctaveAnswer (enharmonic-aware)
+│   │   ├── noteUtils.ts         # noteToId, noteFromId, noteRange, noteToSemitone, etc.
+│   │   └── hints.ts             # getHint — mnemonic hint generator for treble/bass lines/spaces
+│   ├── components/              # React components
+│   │   ├── StaffDisplay.tsx     # VexFlow 5 SVG staff rendering (gold notehead, glow filter)
+│   │   ├── PianoKeyboard.tsx    # Interactive piano (Salamander samples, no labels, gold flash)
+│   │   ├── OctaveButtons.tsx    # Animal buttons overlaid on piano (glass-effect badges)
+│   │   ├── AnimalPrompt.tsx     # Animal image display + chord voicings per octave
+│   │   ├── useAudio.ts          # Tone.js Sampler + PolySynth fallback hook
+│   │   ├── ProgressionBar.tsx   # Buzz → Moon horizontal progress bar with milestones
+│   │   ├── FeedbackOverlay.tsx  # Gold star burst (correct) / red X shake (incorrect)
+│   │   ├── HintOverlay.tsx      # Mnemonic hint overlay (auto-dismiss 4s)
+│   │   ├── Celebration.tsx      # Moon-reached celebration (confetti, score, Play Again)
+│   │   └── StarField.tsx        # 3-layer parallax starfield (seeded PRNG, 195 stars)
+│   ├── screens/                 # Top-level route screens
+│   │   ├── HomeScreen.tsx       # Mission picker (Animals + Notes cards, toggle chips)
+│   │   ├── SessionScreen.tsx    # Core gameplay (adapts per mission, side controls)
+│   │   ├── CardInspectorScreen.tsx  # FSRS card browser (filter, sort, stats)
+│   │   └── ParentSettingsScreen.tsx # Settings (session length, note range, reset data)
+│   ├── store/                   # Zustand stores
+│   │   ├── sessionStore.ts      # Session lifecycle, hint state, scoring, phase machine
+│   │   ├── cardStore.ts         # Mission-scoped FSRS card pools + ensureCardsForMission
+│   │   └── settingsStore.ts     # Settings persistence with forward-compatible merging
+│   └── db/                      # Dexie database setup
+│       └── db.ts                # Schema v1→v2 migration, typed EntityTables
+├── index.html                   # Meta tags (viewport-fit, apple-mobile-web-app, fonts)
+├── vite.config.ts               # Build config (React, Tailwind, PWA, build stamp)
+├── vitest.config.ts             # Separate Vitest config (avoids Vite type conflicts)
 ├── tsconfig.json
 ├── package.json
 └── README.md
@@ -376,88 +433,58 @@ vibeyond/
 
 ---
 
-## Card Inspector
+## Card Inspector (Implemented)
 
-The Card Inspector is a parent-facing screen at `/cards`, linked from the Settings screen. It gives full visibility into the FSRS card state, filtered by the selected mission.
+The Card Inspector is a parent-facing screen at `/cards`, linked from the Settings screen. It gives full visibility into the FSRS card state across all missions.
 
 ### Data Sources
 
-No new persistence is needed. All data comes from existing stores:
+All data comes from existing stores:
 
-- **Card list + FSRS state**: `cardStore` → Dexie `cards` table, filtered by `missionId`. Each `AppCard` has `cardId`, `missionId`, `noteId`, `state` (New/Learning/Review/Relearning), `reps`, `lapses`, `due`, `stability`, `difficulty`.
-- **Per-card success rate**: Computed by scanning `Session.challenges` from Dexie `sessions` table, filtered to sessions matching the selected mission.
+- **Card list + FSRS state**: `cardStore` → Dexie `cards` table. Each `AppCard` has `id`, `missionId`, `noteId`, `state` (New/Learning/Review/Relearning), `reps`, `lapses`, `due`, `stability`, `difficulty`.
+- **Per-card success rate**: Computed by scanning `Session.challenges` from Dexie `sessions` table on mount.
 
-### Screen Layout
+### Features
 
-```
-┌─────────────────────────────────────────┐
-│  ← Back              Card Inspector     │
-├─────────────────────────────────────────┤
-│  22 cards total                         │
-│  [14 New] [5 Learning] [3 Review]       │
-├─────────────────────────────────────────┤
-│  Sort: Note ▾ | State ▾ | Success ▾    │
-├─────────────────────────────────────────┤
-│  C4    ● New       0 reps    —          │
-│  D4    ● Review    12 reps   92%        │
-│  E4    ● Learning  3 reps    67%        │
-│  F4    ● Review    8 reps    88%        │
-│  ...                                    │
-└─────────────────────────────────────────┘
-```
-
-### Components
-
-- **`CardInspectorScreen`** — Route screen at `/cards`. Loads all cards and sessions on mount, computes per-card stats, renders summary + list.
-- **Summary bar** — Total card count + state breakdown badges (colored by state).
-- **Card row** — Note name, state badge, rep count, success rate (or "—" if no attempts), due status ("due now" / "in 2d" / etc.).
-- **Sort controls** — Toggle between note order (default), FSRS state, or success rate ascending.
-
-### Stats Computation
-
-```typescript
-/** Compute per-note stats from session history. */
-function computeNoteStats(sessions: Session[]): Map<NoteId, { attempts: number; correct: number }> {
-  const stats = new Map();
-  for (const session of sessions) {
-    for (const challenge of session.challenges) {
-      const id = noteToId(challenge.promptNote);
-      const entry = stats.get(id) ?? { attempts: 0, correct: 0 };
-      entry.attempts++;
-      if (challenge.correct) entry.correct++;
-      stats.set(id, entry);
-    }
-  }
-  return stats;
-}
-```
-
-This is computed once on screen mount — no need for real-time reactivity since this is a read-only diagnostic view.
+- **Mission filter tabs**: "All" + one tab per mission that has cards. Dynamically derived from card data.
+- **Summary bar**: Total card count + colored state breakdown badges (New=gray, Learning=blue, Review=green, Relearning=orange).
+- **Sort controls**: Toggle between note order (by semitone), FSRS state, or success rate ascending.
+- **2-column card grid**: Each card row shows note name, state badge, rep count, success rate (color-coded: green >= 80%, gold >= 50%, red < 50%), and due status ("due now" / "in Xh" / "in Xd").
+- **Stats computation**: `computeNoteStats()` scans all session challenges on mount — no real-time reactivity needed for this read-only diagnostic view.
 
 ---
 
 ## Infrastructure
+
+### PWA Configuration
+
+The app is a fully offline-capable PWA via `vite-plugin-pwa`:
+
+- **Service worker**: `registerType: 'autoUpdate'` — the service worker updates automatically in the background. No user prompt needed.
+- **Manifest**: `display: standalone`, `orientation: landscape`, theme color `#1a1040`. Icons at 192px and 512px (also maskable).
+- **Workbox pre-caching**: `globPatterns: ['**/*.{js,css,html,png,jpg,svg,webp,mp3,ogg,woff,woff2}']` — all static assets are pre-cached for offline use.
+- **iOS meta tags**: `apple-mobile-web-app-capable`, `black-translucent` status bar, apple-touch-icon.
+- **Build stamp**: `__BUILD_TIME__` is injected at build time as `YYYYMMDD_HHMM_<git-hash>` for version tracking.
 
 ### Hosting
 
 Static site hosting — one of:
 - **Vercel** (preferred) — zero-config Vite deploys, preview deploys on PRs
 - GitHub Pages — simpler, free, good fallback option
-- Netlify — equivalent to Vercel for this use case
 
-No server component. All logic runs client-side. All data stays in the browser's IndexedDB.
+No server component. All logic runs client-side. All data stays in the browser's IndexedDB. Piano samples are loaded from the Tone.js CDN at runtime and cached by the service worker.
 
 ### CI/CD
 
-GitHub Actions pipeline:
+GitHub Actions pipeline (planned):
 
 ```yaml
 # On push/PR to main
 - TypeScript type-check (tsc --noEmit)
 - ESLint
-- Vitest (unit + component tests)
+- Vitest (unit + component tests) — tests not yet written
 - Build (vite build)
-- Lighthouse CI (PWA score, performance budget) — P1
+- Lighthouse CI (PWA score, performance budget)
 ```
 
 ### Deployment
@@ -474,42 +501,44 @@ GitHub Actions pipeline:
 
 - **No auth required** — the app is used by one family on their own device. Parent settings are accessible but not security-critical.
 - **No sensitive data** — only FSRS card states and session history are stored in IndexedDB. No PII, no credentials.
-- **Content Security Policy** — when PWA support is added (P1), configure CSP headers to restrict script sources and prevent XSS:
-  - `default-src 'self'`
-  - `script-src 'self'`
-  - `style-src 'self' 'unsafe-inline'` (Tailwind requires inline styles)
-  - `media-src 'self'` (piano samples)
 - **Dependencies** — keep dependencies minimal and audit with `npm audit` in CI.
-- **No external network calls** — the app makes zero API requests at runtime. All assets are bundled or pre-cached.
+- **External network calls** — the only runtime network request is loading Salamander Grand Piano samples from `tonejs.github.io`. Once cached by the service worker, the app is fully offline.
 
 ---
 
-## P0 Feature Coverage
+## Feature Implementation Map
 
-Cross-reference of every P0 feature from the PRD with its technical implementation:
+Cross-reference of every feature from the PRD with its technical implementation:
 
-| PRD Feature | Technical Implementation |
+| PRD Feature | Status | Technical Implementation |
+|---|---|---|
+| Mission system | Done | `missions.ts` (registry + `resolveMission` + `notesConfigToMissionId`) + `HomeScreen` (mission picker with toggle chips) + `SessionScreen` (adapts per mission via URL param) |
+| Animal Octaves mission | Done | `AnimalPrompt` (PNG images + chord voicings) + `OctaveButtons` (glass-effect badges overlaid on piano) + `AnimalsConfig.showIcons` toggle. 4-card FSRS pool (octaves 2-5). |
+| Notes mission | Done | `StaffDisplay` (VexFlow 5) + `PianoKeyboard` (Salamander samples). Toggle-configurable: Treble/Bass/Accidentals. Per-clef ranges via `perClefRanges` in treble+bass mode. Each toggle combo gets its own FSRS card pool. |
+| Staff display | Done | `StaffDisplay` using VexFlow 5 SVG backend. 2x scale, gold notehead with SVG glow filter, translucent white staff lines. Supports treble and bass clef. |
+| On-screen piano | Done | `PianoKeyboard` — realistic black+white keys, no labels. `useAudio` hook with Tone.Sampler (Salamander CDN) + PolySynth fallback. Gold flash on press. Decorative fog/ledge/shelf layers. |
+| Answer evaluation | Done | `evaluate.ts` — `evaluateAnswer` (enharmonic semitone comparison) + `evaluateOctaveAnswer` (octave-only). `noteToSemitone` in `noteUtils.ts`. |
+| Buzz progression | Done | `ProgressionBar` — horizontal track with spring-animated Buzz icon, gold milestone dots, amber fill gradient, crescent Moon at end. Score + session length displayed. |
+| Spaced repetition | Done | `scheduler.ts` wrapping ts-fsrs (child-tuned params). `cardStore.ts` manages mission-scoped pools with `ensureCardsForMission` (seeds + prunes stale cards). |
+| Hint system | Done | `HintOverlay` + `hints.ts` (mnemonic generator). Woody button on session screen (Notes only). Costs 1 progression step (first use per challenge). Auto-dismiss 4s. |
+| Card Inspector | Done | `CardInspectorScreen` at `/cards`. Mission filter tabs, state badges, 2-column card grid, 3 sort modes, per-card success rates from session history. |
+| Celebration | Done | `Celebration` component — crescent moon, Buzz arrival, 20 gold confetti particles, staggered choreography, score summary, delayed Play Again button. |
+| Parent settings | Done | `ParentSettingsScreen` — session length stepper (5-30), note range display, Card Inspector link, two-step Reset Data. 2-column card grid. |
+| Galactic theme | Done | Tailwind 4 `@theme` (space/nebula/gold/star colors) + Framer Motion springs + `StarField` (3-layer parallax, 195 seeded stars, horizontal+vertical shift) + 3 nebula glow layers + Nunito/Inter fonts. |
+| PWA / Offline | Done | `vite-plugin-pwa` with `registerType: 'autoUpdate'`, Workbox globPatterns for all assets, manifest (standalone, landscape, icons), Apple meta tags. |
+| iOS safe area | Done | `viewport-fit=cover` + `env(safe-area-inset-*)` padding on `#root`. |
+| Build stamp | Done | Git hash + timestamp via Vite `define` (`__BUILD_TIME__`), displayed on HomeScreen. |
+| DB error recovery | Done | `DbErrorDialog` in `App.tsx` — shown when IndexedDB load fails, offers reset+reload. |
+| Audio system | Done | `useAudio` hook — Salamander Grand Piano Sampler (14 sparse notes, CDN-loaded) with PolySynth fallback. `playNote` + `playChord`. Mute toggle on session screen. |
+
+### Not Yet Implemented
+
+| Feature | Notes |
 |---|---|
-| Mission system | `missions.ts` registry + `HomeScreen` mission picker + mission-aware `SessionScreen` |
-| Animal Octaves mission | `AnimalPrompt` + `OctaveButtons` components, 4-card FSRS pool |
-| Treble (no accidentals) mission | `StaffDisplay` + `PianoKeyboard`, naturals-only card pool |
-| Treble mission | `StaffDisplay` + `PianoKeyboard`, full chromatic card pool (current behavior) |
-| Treble + Bass mission | `StaffDisplay` + `PianoKeyboard`, both clefs in card pool |
-| Staff display | `StaffDisplay` component using VexFlow |
-| On-screen piano | `PianoKeyboard` component with Tone.js audio |
-| Answer evaluation | `evaluate.ts` — note comparison (staff missions) + octave comparison (animal mission) |
-| Buzz Lightyear progression | `ProgressionBar` component driven by `logic/progression.ts`, floor-at-zero scoring |
-| Spaced repetition engine | `logic/scheduler.ts` wrapping ts-fsrs, mission-scoped `Card` pools in Dexie |
-| Parent settings | `ParentSettingsScreen` reading/writing `Settings` in Dexie |
-| Galactic theme | Tailwind theme + Framer Motion animations + `StarField` with horizontal/vertical parallax |
-
-### P1 Feature Coverage
-
-| PRD Feature | Technical Implementation |
-|---|---|
-| Card Inspector | `CardInspectorScreen` at `/cards`. Mission-filtered view of FSRS cards. Summary bar + sortable card list. |
-| Note sequences | TBD — potential new mission |
-| Session summary | `SessionSummaryScreen` — TBD |
-| Offline support | `vite-plugin-pwa` service worker + asset pre-caching — TBD |
-| Difficulty progression | TBD |
-| Per-mission settings | TBD — extend Settings to allow per-mission session length overrides |
+| Note sequences | Potential future mission |
+| Detailed session summary | Currently shows basic correct/total on celebration screen |
+| Difficulty progression | Auto-unlock notes as mastery is demonstrated |
+| Per-mission settings | Session length overrides per mission |
+| Web MIDI input | Physical piano support |
+| Player profiles | Per-child progress tracking |
+| Unit tests | Vitest configured but no test files written yet |

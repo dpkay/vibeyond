@@ -13,36 +13,49 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     args: ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage'],
   });
 
-  // Home screen
+  const viewport = { width: 1024, height: 768, deviceScaleFactor: 2 };
+
+  // 1. Notes mission with accidentals
   {
     const page = await browser.newPage();
-    await page.setViewport({ width: 1180, height: 820, deviceScaleFactor: 2 });
-    await page.goto(BASE, { waitUntil: 'networkidle0', timeout: 10000 });
-    await sleep(2000);
-    await page.screenshot({ path: `${DIR}/01-home.png` });
-    console.log('Captured home');
+    await page.setViewport(viewport);
+    await page.goto(`${BASE}/play/notes:treble:acc`, { waitUntil: 'networkidle0', timeout: 15000 });
+    await sleep(3000);
+    await page.screenshot({ path: `${DIR}/01-notes-accidentals.png` });
+    console.log('Captured notes with accidentals');
     await page.close();
   }
 
-  // Animal mission session
+  // 2. Animal octave mission
   {
     const page = await browser.newPage();
-    await page.setViewport({ width: 1180, height: 820, deviceScaleFactor: 2 });
-    await page.goto(`${BASE}/play/animal-octaves`, { waitUntil: 'networkidle0', timeout: 10000 });
+    await page.setViewport(viewport);
+    await page.goto(`${BASE}/play/animal-octaves`, { waitUntil: 'networkidle0', timeout: 15000 });
     await sleep(3000);
     await page.screenshot({ path: `${DIR}/02-animal-session.png` });
     console.log('Captured animal session');
     await page.close();
   }
 
-  // Notes mission session
+  // 3. Home screen
   {
     const page = await browser.newPage();
-    await page.setViewport({ width: 1180, height: 820, deviceScaleFactor: 2 });
-    await page.goto(`${BASE}/play/notes:treble`, { waitUntil: 'networkidle0', timeout: 10000 });
+    await page.setViewport(viewport);
+    await page.goto(BASE, { waitUntil: 'networkidle0', timeout: 15000 });
     await sleep(3000);
-    await page.screenshot({ path: `${DIR}/03-notes-session.png` });
-    console.log('Captured notes session');
+    await page.screenshot({ path: `${DIR}/03-home.png` });
+    console.log('Captured home');
+    await page.close();
+  }
+
+  // 4. Celebration screen
+  {
+    const page = await browser.newPage();
+    await page.setViewport(viewport);
+    await page.goto(`${BASE}/celebrate`, { waitUntil: 'networkidle0', timeout: 15000 });
+    await sleep(3000);
+    await page.screenshot({ path: `${DIR}/04-celebration.png` });
+    console.log('Captured celebration');
     await page.close();
   }
 

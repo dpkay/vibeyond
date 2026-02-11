@@ -4,23 +4,26 @@
 
 | Term | Definition |
 |---|---|
-| **Challenge** | A single question within a session: the app shows a note on the staff, the learner presses a piano key, and the app scores the answer. A session contains many challenges. |
-| **Session** | One complete play-through — Buzz starts at the bottom, the learner works through challenges, and the session ends when Buzz reaches the Moon (or the learner quits). |
-| **Card** | An FSRS spaced-repetition card wrapping a single note. Tracks how well the learner knows that note (stability, difficulty, due date, review count). The scheduler picks which card to surface next. |
-| **Progression** | The visual Buzz Lightyear → Moon mechanic. Correct answers advance Buzz, incorrect answers move him backward. Reaching the Moon completes the session. |
+| **Mission** | A play configuration that defines what the child sees (prompt type), how they answer (input type), and which items are in the FSRS card pool. Missions are selected from the home screen. |
+| **Challenge** | A single question within a session. Depending on the mission, the prompt is a staff note or animal picture, and the response is a piano key press or octave button tap. |
+| **Session** | One complete play-through — Buzz starts at the left, the learner works through challenges, and the session ends when Buzz reaches the Moon (or the learner quits). Each session belongs to a specific mission. |
+| **Card** | An FSRS spaced-repetition card wrapping a single learnable item. In staff missions, this is a note. In Animal Octaves mission, this is an octave. Each mission has its own independent card pool. |
+| **Progression** | The visual Buzz Lightyear → Moon mechanic. Correct answers advance Buzz, incorrect answers move him backward. Uses floor-at-zero scoring (no negative debt). Reaching the Moon completes the session. |
 | **Note** | A musical note identified by pitch (C–B), accidental (sharp/flat/natural), octave, and clef. |
 
 ---
 
 ## Architecture Overview
 
-Vibeyond is a single-purpose app: show a note on a staff, have the learner press the matching piano key, track mastery over time. The architecture reflects this — clean separation of concerns without premature abstraction.
+Vibeyond is a multi-mission music recognition app. The core loop — show a prompt, accept input, evaluate, track mastery — is shared across missions. What varies per mission is the prompt type (staff note vs. animal picture), the input type (piano keyboard vs. octave buttons), and the card pool.
 
 ```mermaid
 graph TD
     subgraph UI
         A[StaffDisplay]
+        A2[AnimalPrompt]
         B[PianoKeyboard]
+        B2[OctaveButtons]
         C[ProgressionBar]
         D[FeedbackOverlay]
     end
@@ -29,27 +32,31 @@ graph TD
         E[SessionManager]
         F[Scheduler - FSRS]
         G[Progression]
+        M[MissionRegistry]
     end
 
     subgraph Persistence
         H[Dexie - IndexedDB]
     end
 
-    E -- picks next note --> F
+    M -- defines prompt + input --> E
+    E -- picks next card --> F
     E -- updates progress --> G
     F -- reads/writes cards --> H
     E -- logs sessions --> H
     A -- displays note --> E
+    A2 -- displays animal --> E
     B -- sends key press --> E
+    B2 -- sends octave tap --> E
     E -- drives --> C
     E -- triggers --> D
 ```
 
-**UI layer** — React components for the staff, piano, progression bar, and feedback animations. These receive data and fire callbacks; they don't manage session state.
+**UI layer** — React components for prompts (staff display, animal prompt), inputs (piano keyboard, octave buttons), progression bar, and feedback animations. These receive data and fire callbacks; they don't manage session state.
 
-**Logic layer** — The session manager orchestrates the core loop: pick a note (via FSRS scheduler), show it, accept input, evaluate, update progression, repeat. Pure functions and Zustand stores, no UI.
+**Logic layer** — The session manager orchestrates the core loop. A mission registry defines available missions and their configurations. The FSRS scheduler operates on mission-scoped card pools. Pure functions and Zustand stores, no UI.
 
-**Persistence layer** — Dexie wrapping IndexedDB. Stores FSRS cards, session history, and settings. No backend, no network calls.
+**Persistence layer** — Dexie wrapping IndexedDB. Stores FSRS cards (keyed by mission + item ID), session history, and settings. No backend, no network calls.
 
 ### React Component Tree
 
@@ -57,15 +64,17 @@ graph TD
 graph TD
     App --> SettingsProvider
     SettingsProvider --> Router
-    Router --> HomeScreen
+    Router --> HomeScreen["HomeScreen (mission picker)"]
     Router --> SessionScreen
     Router --> SessionSummaryScreen["SessionSummaryScreen (P1)"]
     Router --> ParentSettingsScreen
-    Router --> CardInspectorScreen["CardInspectorScreen (P1)"]
+    Router --> CardInspectorScreen
     SessionScreen --> ProgressionBar
-    SessionScreen --> StaffDisplay
+    SessionScreen -->|staff missions| StaffDisplay
+    SessionScreen -->|animal mission| AnimalPrompt
     SessionScreen --> FeedbackOverlay
-    SessionScreen --> PianoKeyboard
+    SessionScreen -->|staff missions| PianoKeyboard
+    SessionScreen -->|animal mission| OctaveButtons
 ```
 
 ---
@@ -94,6 +103,28 @@ graph TD
 ### Core Entities
 
 ```typescript
+/** Identifies a mission. Used as a key prefix for FSRS cards. */
+type MissionId = "animal-octaves" | "treble-no-accidentals" | "treble" | "treble-bass";
+
+/**
+ * A mission definition. Statically defined in code (not user-created).
+ * Determines what the child sees and how they interact.
+ */
+interface MissionDefinition {
+  id: MissionId;
+  name: string;                        // e.g. "Animal Octaves"
+  description: string;                 // shown on home screen
+  promptType: "animal" | "staff";      // what's displayed as the challenge
+  inputType: "octave-buttons" | "piano"; // how the child answers
+  enabledClefs: ("treble" | "bass")[]; // which clefs (staff missions only)
+  includeAccidentals: boolean;         // whether sharps/flats are in the pool
+  challengeRange: {                    // note range for staff missions
+    minNote: Note;
+    maxNote: Note;
+  };
+  defaultSessionLength: number;        // correct answers needed to reach Moon
+}
+
 /** A musical note identified by its pitch name, accidental, octave, and clef. */
 interface Note {
   pitch: "C" | "D" | "E" | "F" | "G" | "A" | "B";
@@ -102,15 +133,24 @@ interface Note {
   clef: "treble" | "bass";
 }
 
-/** Unique string key for a note, e.g. "treble:C#4", "treble:Bb3" */
+/** Unique string key for a note, e.g. "treble:C:natural:4" */
 type NoteId = string;
 
 /**
- * An FSRS card wrapping a note. Tracks review state for
- * spaced repetition scheduling.
+ * Unique key for an FSRS card, scoped to a mission.
+ * Format: "<missionId>:<itemId>" where itemId is a NoteId (staff missions)
+ * or an octave identifier like "octave:2" (animal mission).
+ */
+type CardId = string;
+
+/**
+ * An FSRS card wrapping a learnable item. Scoped to a mission so that
+ * each mission tracks its own independent progress.
  */
 interface Card {
-  noteId: NoteId;
+  cardId: CardId;            // e.g. "treble:treble:C:natural:4" or "animal-octaves:octave:2"
+  missionId: MissionId;            // which mission this card belongs to
+  noteId: NoteId;            // the note (or octave) this card represents
   // FSRS fields
   stability: number;
   difficulty: number;
@@ -123,7 +163,7 @@ interface Card {
 
 /** A single challenge within a session. */
 interface Challenge {
-  promptNote: Note;          // the note shown on the staff
+  promptNote: Note;          // the note shown on the staff (or octave for animal mission)
   responseNote: Note | null; // the key the user pressed (null if unanswered)
   correct: boolean | null;
   responseTimeMs: number | null;
@@ -133,37 +173,86 @@ interface Challenge {
 /** A complete play-through from start to celebration (or quit). */
 interface Session {
   id: string;
+  missionId: MissionId;            // which mission this session was played in
   startedAt: Date;
   completedAt: Date | null;
   challenges: Challenge[];
   totalCorrect: number;
   totalIncorrect: number;
+  score: number;             // running score with floor-at-zero semantics
   completed: boolean;        // true if Buzz reached the Moon
 }
 
 /** Parent-configurable settings. */
 interface Settings {
   noteRange: {
-    minNote: Note;   // e.g. { pitch: "C", octave: 2, clef: "treble" }
-    maxNote: Note;   // e.g. { pitch: "B", octave: 5, clef: "treble" }
+    minNote: Note;           // keyboard display range (visual only)
+    maxNote: Note;
   };
-  challengeRange: {
-    minNote: Note;   // e.g. { pitch: "C", octave: 4, clef: "treble" }
-    maxNote: Note;   // e.g. { pitch: "A", octave: 5, clef: "treble" }
-  };
-  enabledClefs: ("treble" | "bass")[];
-  sessionLength: number;     // number of correct answers to reach the Moon
+  sessionLength: number;     // default; may be overridden per-mission in future
 }
+```
+
+### Mission Registry
+
+```typescript
+/** Static mission definitions — not user-configurable. */
+const MISSIONS: MissionDefinition[] = [
+  {
+    id: "animal-octaves",
+    name: "Animal Octaves",
+    description: "Match animals to their sounds",
+    promptType: "animal",
+    inputType: "octave-buttons",
+    enabledClefs: [],
+    includeAccidentals: false,
+    challengeRange: { /* C2-B5 spanning 4 octaves */ },
+    defaultSessionLength: 10,
+  },
+  {
+    id: "treble-no-accidentals",
+    name: "Treble (White Keys)",
+    description: "Treble clef, no sharps or flats",
+    promptType: "staff",
+    inputType: "piano",
+    enabledClefs: ["treble"],
+    includeAccidentals: false,
+    challengeRange: { /* C4-B5 */ },
+    defaultSessionLength: 20,
+  },
+  {
+    id: "treble",
+    name: "Treble",
+    description: "Treble clef, all notes",
+    promptType: "staff",
+    inputType: "piano",
+    enabledClefs: ["treble"],
+    includeAccidentals: true,
+    challengeRange: { /* C4-A5 */ },
+    defaultSessionLength: 30,
+  },
+  {
+    id: "treble-bass",
+    name: "Treble + Bass",
+    description: "Both clefs, all notes",
+    promptType: "staff",
+    inputType: "piano",
+    enabledClefs: ["treble", "bass"],
+    includeAccidentals: true,
+    challengeRange: { /* C3-A5 */ },
+    defaultSessionLength: 30,
+  },
+];
 ```
 
 ### Dexie Schema
 
 ```typescript
 const db = new Dexie("VibeyondDB");
-db.version(1).stores({
-  cards: "noteId, due, state",
-  sessions: "id, startedAt",
-  settings: "key",           // single-row key-value for settings
+db.version(2).stores({
+  cards: "cardId, missionId, due, state",  // cardId is now mission-scoped
+  sessions: "id, missionId, startedAt",    // sessions track which mission
+  settings: "key",
 });
 ```
 
@@ -222,13 +311,13 @@ function reviewCard(card: Card, correct: boolean): Card {
   // Wraps ts-fsrs scheduling logic, using child-tuned parameters below
 }
 
-/** Calculate Buzz's position (0–1) given session progress. */
+/** Calculate Buzz's position (0–1) from the session's running score. */
 function calculateProgression(
-  correct: number,
-  incorrect: number,
+  score: number,
   sessionLength: number,
 ): number {
-  // Net correct / sessionLength, clamped to [0, 1]
+  // score / sessionLength, clamped to [0, 1]
+  // Score uses floor-at-zero: correct +1, incorrect max(0, score-1)
 }
 ```
 
@@ -267,44 +356,53 @@ const fsrs = new FSRS(params);
 vibeyond/
 ├── docs/
 │   ├── PRD.md
-│   └── TDD.md
+│   ├── TDD.md
+│   ├── UX-SPEC.md
+│   └── RETENTION.md
 ├── public/
-│   ├── icons/                  # PWA icons
+│   ├── buzz.png                # Buzz Lightyear character image
+│   ├── animals/                # Animal illustrations for octave mission
+│   │   ├── elephant.svg
+│   │   ├── penguin.svg
+│   │   ├── hedgehog.svg
+│   │   └── mouse.svg
 │   └── samples/                # Piano audio samples (mp3/ogg)
 ├── src/
 │   ├── main.tsx                # Entry point
 │   ├── App.tsx                 # Router + providers
+│   ├── types.ts                # Shared type definitions
+│   ├── missions.ts                # Mission registry (static mission definitions)
 │   ├── logic/                  # Core logic (no UI)
-│   │   ├── session.ts          # Session state machine + core loop
 │   │   ├── progression.ts      # Buzz → Moon progress calculation
 │   │   ├── scheduler.ts        # FSRS scheduling wrapper
-│   │   ├── evaluate.ts         # Answer evaluation
+│   │   ├── evaluate.ts         # Answer evaluation (note + octave)
 │   │   └── noteUtils.ts        # noteToId, noteFromId, noteRange, etc.
 │   ├── components/             # React components
 │   │   ├── StaffDisplay.tsx    # VexFlow staff rendering
-│   │   ├── PianoKeyboard.tsx   # On-screen piano
+│   │   ├── PianoKeyboard.tsx   # On-screen piano (staff missions)
+│   │   ├── OctaveButtons.tsx   # 4 large animal buttons (animal mission)
+│   │   ├── AnimalPrompt.tsx    # Animal picture display (animal mission)
 │   │   ├── useAudio.ts         # Tone.js hook for key sounds
 │   │   ├── ProgressionBar.tsx  # Buzz Lightyear → Moon
 │   │   ├── FeedbackOverlay.tsx # Correct/incorrect animations
 │   │   ├── Celebration.tsx     # Moon-reached celebration
 │   │   └── StarField.tsx       # Background starfield animation
 │   ├── screens/                # Top-level route screens
-│   │   ├── HomeScreen.tsx
-│   │   ├── SessionScreen.tsx
-│   │   ├── SessionSummaryScreen.tsx  # P1
-│   │   ├── CardInspectorScreen.tsx  # P1
+│   │   ├── HomeScreen.tsx      # Mission picker
+│   │   ├── SessionScreen.tsx   # Core gameplay (adapts per mission)
+│   │   ├── CardInspectorScreen.tsx
 │   │   └── ParentSettingsScreen.tsx
 │   ├── store/                  # Zustand stores
-│   │   ├── sessionStore.ts
-│   │   ├── cardStore.ts
+│   │   ├── sessionStore.ts     # Mission-aware session management
+│   │   ├── cardStore.ts        # Mission-scoped FSRS card pools
 │   │   └── settingsStore.ts
 │   ├── db/                     # Dexie database setup + queries
 │   │   └── db.ts
 │   └── styles/
 │       └── index.css           # Tailwind directives + custom theme
 ├── index.html
-├── tailwind.config.ts
 ├── vite.config.ts
+├── vitest.config.ts
 ├── tsconfig.json
 ├── package.json
 └── README.md
@@ -312,16 +410,16 @@ vibeyond/
 
 ---
 
-## Card Inspector (P1)
+## Card Inspector
 
-The Card Inspector is a parent-facing screen at `/cards`, linked from the Settings screen. It gives full visibility into the FSRS card state.
+The Card Inspector is a parent-facing screen at `/cards`, linked from the Settings screen. It gives full visibility into the FSRS card state, filtered by the selected mission.
 
 ### Data Sources
 
 No new persistence is needed. All data comes from existing stores:
 
-- **Card list + FSRS state**: `cardStore` → Dexie `cards` table. Each `AppCard` has `noteId`, `state` (New/Learning/Review/Relearning), `reps`, `lapses`, `due`, `stability`, `difficulty`.
-- **Per-card success rate**: Computed by scanning all `Session.challenges` from Dexie `sessions` table. For each `promptNote`, count total attempts and correct answers.
+- **Card list + FSRS state**: `cardStore` → Dexie `cards` table, filtered by `missionId`. Each `AppCard` has `cardId`, `missionId`, `noteId`, `state` (New/Learning/Review/Relearning), `reps`, `lapses`, `due`, `stability`, `difficulty`.
+- **Per-card success rate**: Computed by scanning `Session.challenges` from Dexie `sessions` table, filtered to sessions matching the selected mission.
 
 ### Screen Layout
 
@@ -426,21 +524,26 @@ Cross-reference of every P0 feature from the PRD with its technical implementati
 
 | PRD Feature | Technical Implementation |
 |---|---|
+| Mission system | `missions.ts` registry + `HomeScreen` mission picker + mission-aware `SessionScreen` |
+| Animal Octaves mission | `AnimalPrompt` + `OctaveButtons` components, 4-card FSRS pool |
+| Treble (no accidentals) mission | `StaffDisplay` + `PianoKeyboard`, naturals-only card pool |
+| Treble mission | `StaffDisplay` + `PianoKeyboard`, full chromatic card pool (current behavior) |
+| Treble + Bass mission | `StaffDisplay` + `PianoKeyboard`, both clefs in card pool |
 | Staff display | `StaffDisplay` component using VexFlow |
 | On-screen piano | `PianoKeyboard` component with Tone.js audio |
-| Answer evaluation | `evaluate.ts` — compares prompt note to pressed key |
-| Buzz Lightyear progression | `ProgressionBar` component driven by `logic/progression.ts` |
-| Spaced repetition engine | `logic/scheduler.ts` wrapping ts-fsrs, `Card` model in Dexie |
-| Parent mode | `ParentSettingsScreen` reading/writing `Settings` in Dexie |
-| Galactic theme | Tailwind theme config + Framer Motion animations + `StarField` background |
+| Answer evaluation | `evaluate.ts` — note comparison (staff missions) + octave comparison (animal mission) |
+| Buzz Lightyear progression | `ProgressionBar` component driven by `logic/progression.ts`, floor-at-zero scoring |
+| Spaced repetition engine | `logic/scheduler.ts` wrapping ts-fsrs, mission-scoped `Card` pools in Dexie |
+| Parent settings | `ParentSettingsScreen` reading/writing `Settings` in Dexie |
+| Galactic theme | Tailwind theme + Framer Motion animations + `StarField` with horizontal/vertical parallax |
 
 ### P1 Feature Coverage
 
 | PRD Feature | Technical Implementation |
 |---|---|
-| Card Inspector | `CardInspectorScreen` at `/cards`. Reads `AppCard` from Dexie + scans `Session.challenges` to compute per-note attempt/success stats. Summary bar + sortable card list. |
-| Note sequences | TBD |
+| Card Inspector | `CardInspectorScreen` at `/cards`. Mission-filtered view of FSRS cards. Summary bar + sortable card list. |
+| Note sequences | TBD — potential new mission |
 | Session summary | `SessionSummaryScreen` — TBD |
 | Offline support | `vite-plugin-pwa` service worker + asset pre-caching — TBD |
-| Bass clef support | TBD |
 | Difficulty progression | TBD |
+| Per-mission settings | TBD — extend Settings to allow per-mission session length overrides |

@@ -123,23 +123,23 @@ The approved mock (`mocks/mock01.jpg`) establishes the target visual language:
 
 ## Screen Specs
 
-### Session Screen
+### Session Screen (Staff Missions)
 
-This is the core experience. It must match the reference mock closely.
+This is the core experience for Treble, Treble (no accidentals), and Treble + Bass missions. It must match the reference mock closely.
 
 **Layout (landscape iPad, 1180x820):**
 ```
 ┌─────────────────────────────────────────────────────────┐
 │ (⏸)          What note is this?            (🔊) (⚙️)   │  ← Header: ~56px tall
 │                                                          │
-│ 🌙                                                       │
-│ ┃         ───────────────────────────────                │
-│ ┃         ───────────────────────────────                │
-│ ┃   𝄞     ──────────── ● ──────────────── (staff)      │  ← Staff: centered, large
-│ ┃         ───────────────────────────────                │
-│ ┃         ───────────────────────────────                │
-│ 🚀                                                       │
-│ 3/10                                                     │
+│  Buzz ────────────── progress ──────────── 🌙           │  ← ProgressionBar
+│                                                          │
+│         ───────────────────────────────                  │
+│         ───────────────────────────────                  │
+│   𝄞     ──────────── ● ──────────────── (staff)        │  ← Staff: centered, large
+│         ───────────────────────────────                  │
+│         ───────────────────────────────                  │
+│                                                          │
 │ ┌───────────────────────────────────────────────────┐   │
 │ │  ██  ██     ██  ██  ██     ██  ██     ██  ██  ██  │   │  ← Black keys
 │ │ ┌┴┐┌┴┐┌─┐┌┴┐┌┴┐┌┴┐┌─┐┌┴┐┌┴┐┌─┐┌┴┐┌┴┐┌┴┐┌─┐ │   │  ← White keys: ~140px tall
@@ -149,7 +149,7 @@ This is the core experience. It must match the reference mock closely.
 └─────────────────────────────────────────────────────────┘
 ```
 
-**Progression sidebar:** ~80–90px wide. SVG moon (top), vertical track with amber fill, SVG rocket at progress point, "N/M STARS" counter text below rocket.
+**Progression bar:** Horizontal bar at the top. Buzz starts left, Moon at right. Amber fill grows left-to-right. Score counter below Buzz.
 
 **Staff area:** Centered horizontally and vertically in the remaining space. Width: 60–70% of main area. Height: at least 250–300px for the VexFlow rendering. Staff lines in semi-transparent white. Note in gold with glow. No container/background — renders directly on the space background.
 
@@ -157,14 +157,68 @@ This is the core experience. It must match the reference mock closely.
 
 **Header:** Pause icon button (top-left), "What note is this?" centered, sound toggle + settings gear (top-right). All icon buttons: 44x44px dark circles.
 
-### Home Screen
+### Session Screen (Animal Octaves Mission)
 
-**Layout:** Vertically distributed, not tightly clustered.
+The Animal Octaves session replaces the staff and piano keyboard with age-appropriate elements for a 3-year-old.
+
+**Layout (landscape iPad, 1180x820):**
+```
+┌─────────────────────────────────────────────────────────┐
+│ (⏸)         Which animal is this?          (🔊) (⚙️)   │  ← Header
+│                                                          │
+│  Buzz ────────────── progress ──────────── 🌙           │  ← ProgressionBar
+│                                                          │
+│                   ┌──────────────┐                      │
+│                   │              │                      │
+│                   │   🐘 / 🐧    │  ← Large animal      │
+│                   │   / 🦔 / 🐭  │    illustration      │
+│                   │              │    (~200x200px)      │
+│                   └──────────────┘                      │
+│                                                          │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐  │
+│  │    🐘    │ │    🐧    │ │    🦔    │ │    🐭    │  │  ← 4 large
+│  │ Elephant │ │ Penguin  │ │ Hedgehog │ │  Mouse   │  │    buttons
+│  └──────────┘ └──────────┘ └──────────┘ └──────────┘  │    (~150px tall)
+└─────────────────────────────────────────────────────────┘
+```
+
+**Prompt area:** A large, colorful SVG illustration of the animal occupies the center of the screen. The animal picture should be warm, friendly, and instantly recognizable at a glance.
+
+**Octave buttons:** 4 large buttons spanning the bottom of the screen (replacing the piano keyboard). Each button shows:
+- The animal SVG illustration (smaller version, ~60x60px)
+- The animal name below in large friendly text (~20px)
+- Warm gold highlight on press
+- The buttons are ordered left to right from lowest (elephant) to highest (mouse)
+
+**Audio:** When the prompt appears, a representative tone from the target octave plays automatically so the child hears the pitch. When a button is tapped, a tone from that octave plays for feedback.
+
+### Home Screen (Mission Picker)
+
+**Layout:** The home screen is now a mission picker. Vertically distributed, not tightly clustered.
 - Top area: Moon SVG illustration with golden glow
 - Center: App title "Vibeyond" (48–56px bold), subtitle "Fly to the Moon with music!" (20–24px, muted)
-- Below center: Large Play button (280x80px minimum, golden/amber accent, rounded, with subtle pulsing glow)
-- Rocket illustration between moon and play button, suggesting the journey
+- Below center: **Mission selection cards** in a 2x2 grid or vertical list
 - Settings gear icon: top-right corner, small (44x44px), muted
+
+**Mission cards:** Each mission gets a tappable card with:
+- A distinctive icon (animal faces for Animal Octaves, treble clef variations for staff missions)
+- Mission name (e.g. "Animal Octaves", "Treble", "Treble + Bass")
+- Short description (e.g. "Match animals to their sounds")
+- Warm gold border/glow on tap
+
+**Mission card layout (2x2 grid):**
+```
+┌──────────────┐  ┌──────────────┐
+│  🐘🐧🦔🐭    │  │   𝄞 ♪        │
+│ Animal       │  │  Treble      │
+│ Octaves      │  │  (White Keys)│
+└──────────────┘  └──────────────┘
+┌──────────────┐  ┌──────────────┐
+│   𝄞 ♯♭       │  │  𝄞 + 𝄢       │
+│  Treble      │  │  Treble +    │
+│  (All Notes) │  │  Bass        │
+└──────────────┘  └──────────────┘
+```
 
 **Background:** Same warm navy gradient as session screen. Stars more visible here.
 

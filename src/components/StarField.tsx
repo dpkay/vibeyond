@@ -100,7 +100,10 @@ function seededRandom(seed: number) {
  * when `parallaxOffset` equals 1. Higher values for closer (higher-numbered)
  * layers create the depth illusion.
  */
-const PARALLAX = { 1: 4, 2: 12, 3: 24 } as const;
+const PARALLAX_Y = { 1: 4, 2: 12, 3: 24 } as const;
+
+/** Horizontal parallax multipliers (negative = stars drift left as Buzz flies right). */
+const PARALLAX_X = { 1: -8, 2: -24, 3: -48 } as const;
 
 /**
  * Three-layer animated starfield with optional parallax scrolling.
@@ -172,12 +175,16 @@ export function StarField({ parallaxOffset = 0 }: StarFieldProps) {
     damping: 20,
   });
 
-  // Per-layer vertical transforms derived from the spring value
-  const layer1Y = useTransform(springOffset, (v) => v * PARALLAX[1]);
-  const layer2Y = useTransform(springOffset, (v) => v * PARALLAX[2]);
-  const layer3Y = useTransform(springOffset, (v) => v * PARALLAX[3]);
+  // Per-layer transforms derived from the spring value
+  const layer1Y = useTransform(springOffset, (v) => v * PARALLAX_Y[1]);
+  const layer2Y = useTransform(springOffset, (v) => v * PARALLAX_Y[2]);
+  const layer3Y = useTransform(springOffset, (v) => v * PARALLAX_Y[3]);
+  const layer1X = useTransform(springOffset, (v) => v * PARALLAX_X[1]);
+  const layer2X = useTransform(springOffset, (v) => v * PARALLAX_X[2]);
+  const layer3X = useTransform(springOffset, (v) => v * PARALLAX_X[3]);
 
   const layerY = { 1: layer1Y, 2: layer2Y, 3: layer3Y };
+  const layerX = { 1: layer1X, 2: layer2X, 3: layer3X };
 
   return (
     <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
@@ -185,7 +192,7 @@ export function StarField({ parallaxOffset = 0 }: StarFieldProps) {
         <motion.div
           key={layer}
           className="absolute inset-0"
-          style={{ y: layerY[layer as 1 | 2 | 3] }}
+          style={{ x: layerX[layer as 1 | 2 | 3], y: layerY[layer as 1 | 2 | 3] }}
         >
           {stars
             .filter((s) => s.layer === layer)

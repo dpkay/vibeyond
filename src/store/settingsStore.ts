@@ -41,7 +41,7 @@ const DEFAULT_SETTINGS: Settings = {
     minNote: DEFAULT_MIN_NOTE,
     maxNote: DEFAULT_MAX_NOTE,
   },
-  sessionLength: 30,
+  sessionLength: 20,
   animalsConfig: DEFAULT_ANIMALS_CONFIG,
   notesConfig: DEFAULT_NOTES_CONFIG,
 };

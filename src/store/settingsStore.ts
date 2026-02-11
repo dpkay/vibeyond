@@ -22,7 +22,8 @@
 
 import { create } from "zustand";
 import type { Settings } from "../types";
-import { DEFAULT_MIN_NOTE, DEFAULT_MAX_NOTE, DEFAULT_CHALLENGE_MIN, DEFAULT_CHALLENGE_MAX } from "../logic/noteUtils";
+import { DEFAULT_MIN_NOTE, DEFAULT_MAX_NOTE } from "../logic/noteUtils";
+import { DEFAULT_ANIMALS_CONFIG, DEFAULT_NOTES_CONFIG } from "../missions";
 import { db } from "../db/db";
 
 /**
@@ -32,22 +33,17 @@ import { db } from "../db/db";
  * - `noteRange`: The full range of keys rendered on the piano keyboard
  *   (C2--B5, four octaves). This is purely visual; it does not restrict
  *   which notes can appear as challenges.
- * - `challengeRange`: The subset of notes that can be presented as quiz
- *   prompts (C4--A5, the treble-clef "comfort zone" for a beginning learner).
- * - `enabledClefs`: Only treble clef by default; bass can be enabled later.
  * - `sessionLength`: Number of correct answers needed to complete a session.
+ *   Missions define their own defaults; this is the global override.
  */
 const DEFAULT_SETTINGS: Settings = {
   noteRange: {
     minNote: DEFAULT_MIN_NOTE,
     maxNote: DEFAULT_MAX_NOTE,
   },
-  challengeRange: {
-    minNote: DEFAULT_CHALLENGE_MIN,
-    maxNote: DEFAULT_CHALLENGE_MAX,
-  },
-  enabledClefs: ["treble"],
   sessionLength: 30,
+  animalsConfig: DEFAULT_ANIMALS_CONFIG,
+  notesConfig: DEFAULT_NOTES_CONFIG,
 };
 
 /**

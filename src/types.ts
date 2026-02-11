@@ -11,6 +11,62 @@
 import type { Card as FSRSCard } from "ts-fsrs";
 
 /**
+ * Identifies a mission. Either "animal-octaves" or a derived string like
+ * "notes:treble", "notes:treble+bass:acc", etc.
+ */
+export type MissionId = string;
+
+/**
+ * Configuration for the Animals mission.
+ */
+export interface AnimalsConfig {
+  showIcons: boolean;
+}
+
+/**
+ * Configuration for the Notes mission — which clefs and whether accidentals
+ * are enabled. Each unique combination gets its own FSRS card pool.
+ */
+export interface NotesConfig {
+  treble: boolean;
+  bass: boolean;
+  accidentals: boolean;
+}
+
+/**
+ * How the challenge is presented to the child.
+ * - `"staff"` — a note on a musical staff (uses StaffDisplay).
+ * - `"animal"` — an animal picture representing an octave (uses AnimalPrompt).
+ */
+export type PromptType = "staff" | "animal";
+
+/**
+ * How the child responds to the challenge.
+ * - `"piano"` — tap a key on the on-screen piano keyboard.
+ * - `"octave-buttons"` — tap one of 4 large animal/octave buttons.
+ */
+export type InputType = "piano" | "octave-buttons";
+
+/**
+ * Static definition of a mission. These are code-only constants stored
+ * in the {@link MISSIONS} registry — not persisted in the database.
+ */
+export interface MissionDefinition {
+  id: MissionId;
+  name: string;
+  description: string;
+  promptType: PromptType;
+  inputType: InputType;
+  enabledClefs: ("treble" | "bass")[];
+  includeAccidentals: boolean;
+  challengeRange: {
+    minNote: Note;
+    maxNote: Note;
+  };
+  defaultSessionLength: number;
+}
+
+/**
  * A musical note identified by its pitch name, accidental, octave, and clef.
  *
  * This is the fundamental unit of the app's domain: every challenge prompt,
@@ -51,8 +107,12 @@ export type NoteId = string;
  * stored in IndexedDB.
  */
 export interface AppCard extends FSRSCard {
-  /** Links this card back to the specific note it quizzes. Also the DB primary key. */
+  /** Compound primary key: `"${missionId}::${noteId}"`. */
+  id: string;
+  /** Links this card back to the specific note it quizzes. */
   noteId: NoteId;
+  /** Which mission this card belongs to. Cards are scoped per-mission. */
+  missionId: MissionId;
 }
 
 /**
@@ -88,6 +148,9 @@ export interface Challenge {
 export interface Session {
   /** UUID for this session. Also the DB primary key. */
   id: string;
+
+  /** Which mission was played in this session. */
+  missionId: MissionId;
 
   /** When the session began. */
   startedAt: Date;
@@ -137,23 +200,14 @@ export interface Settings {
   };
 
   /**
-   * Range of notes that can appear as challenge prompts on the staff.
-   * Must be a subset of (or equal to) `noteRange`. FSRS cards are
-   * created for every note in this range.
-   */
-  challengeRange: {
-    /** Lowest note that can be prompted (inclusive). */
-    minNote: Note;
-    /** Highest note that can be prompted (inclusive). */
-    maxNote: Note;
-  };
-
-  /** Which clefs are enabled for challenges. At least one must be active. */
-  enabledClefs: ("treble" | "bass")[];
-
-  /**
    * Number of correct answers needed to complete a session (reach the Moon).
-   * Incorrect answers do not increment this counter.
+   * Missions define their own defaults; this is the global override.
    */
   sessionLength: number;
+
+  /** Toggle configuration for the Animals mission. */
+  animalsConfig: AnimalsConfig;
+
+  /** Toggle configuration for the Notes mission. */
+  notesConfig: NotesConfig;
 }

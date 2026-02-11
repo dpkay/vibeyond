@@ -27,6 +27,7 @@ import { useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useSettingsStore } from "./store/settingsStore";
 import { useCardStore } from "./store/cardStore";
+import { db } from "./db/db";
 import { HomeScreen } from "./screens/HomeScreen";
 import { SessionScreen } from "./screens/SessionScreen";
 import { ParentSettingsScreen } from "./screens/ParentSettingsScreen";
@@ -47,14 +48,61 @@ import { Celebration } from "./components/Celebration";
  *
  * @param children - The route tree to render once data is ready.
  */
+function DbErrorDialog() {
+  const handleReset = async () => {
+    try {
+      await db.delete();
+    } catch {
+      // If delete fails, try nuking via the native API
+      indexedDB.deleteDatabase("VibeyondDB");
+    }
+    window.location.reload();
+  };
+
+  return (
+    <div className="h-full flex items-center justify-center" style={{ padding: 32 }}>
+      <div
+        className="flex flex-col items-center gap-5 rounded-2xl max-w-sm text-center"
+        style={{ background: "rgba(30,30,60,0.85)", padding: "40px 32px" }}
+      >
+        <div style={{ fontSize: 40, lineHeight: 1 }}>🔧</div>
+        <p className="text-lg text-white" style={{ lineHeight: 1.5 }}>
+          Something went wrong loading your saved data.
+        </p>
+        <p className="text-sm" style={{ color: "rgba(255,255,255,0.45)", lineHeight: 1.6 }}>
+          This can happen after an app update. Resetting will clear your
+          progress but fix the problem.
+        </p>
+        <button
+          onClick={handleReset}
+          className="rounded-xl text-white font-medium cursor-pointer"
+          style={{
+            background: "rgba(251,191,36,0.8)",
+            padding: "14px 32px",
+            marginTop: 8,
+          }}
+        >
+          Reset &amp; Reload
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AppLoader({ children }: { children: React.ReactNode }) {
-  const { loaded: settingsLoaded, loadSettings } = useSettingsStore();
-  const { loaded: cardsLoaded, loadCards } = useCardStore();
+  const { loaded: settingsLoaded, loadSettings, dbError: settingsDbError } = useSettingsStore();
+  const { loaded: cardsLoaded, loadCards, dbError: cardsDbError } = useCardStore();
 
   useEffect(() => {
     loadSettings();
     loadCards();
   }, [loadSettings, loadCards]);
+
+  const dbError = settingsDbError || cardsDbError;
+
+  if (dbError) {
+    return <DbErrorDialog />;
+  }
 
   if (!settingsLoaded || !cardsLoaded) {
     return (

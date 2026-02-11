@@ -61,6 +61,7 @@ const DEFAULT_SETTINGS: Settings = {
 interface SettingsState {
   settings: Settings;
   loaded: boolean;
+  dbError: string | null;
   loadSettings: () => Promise<void>;
   updateSettings: (patch: Partial<Settings>) => Promise<void>;
 }
@@ -68,6 +69,7 @@ interface SettingsState {
 export const useSettingsStore = create<SettingsState>((set, get) => ({
   settings: DEFAULT_SETTINGS,
   loaded: false,
+  dbError: null,
 
   /**
    * Load settings from IndexedDB and merge with compile-time defaults.
@@ -83,23 +85,28 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
    * IndexedDB so that subsequent loads find them.
    */
   loadSettings: async () => {
-    const row = await db.settings.get("appSettings");
-    if (row) {
-      // Merge with defaults so new fields (e.g. challengeRange) get populated
-      const stored = JSON.parse(row.value);
-      const merged: Settings = { ...DEFAULT_SETTINGS, ...stored };
-      // Persist the merged version so new defaults are saved
-      await db.settings.put({
-        key: "appSettings",
-        value: JSON.stringify(merged),
-      });
-      set({ settings: merged, loaded: true });
-    } else {
-      await db.settings.put({
-        key: "appSettings",
-        value: JSON.stringify(DEFAULT_SETTINGS),
-      });
-      set({ loaded: true });
+    try {
+      const row = await db.settings.get("appSettings");
+      if (row) {
+        // Merge with defaults so new fields (e.g. challengeRange) get populated
+        const stored = JSON.parse(row.value);
+        const merged: Settings = { ...DEFAULT_SETTINGS, ...stored };
+        // Persist the merged version so new defaults are saved
+        await db.settings.put({
+          key: "appSettings",
+          value: JSON.stringify(merged),
+        });
+        set({ settings: merged, loaded: true });
+      } else {
+        await db.settings.put({
+          key: "appSettings",
+          value: JSON.stringify(DEFAULT_SETTINGS),
+        });
+        set({ loaded: true });
+      }
+    } catch (err) {
+      console.error("Failed to load settings:", err);
+      set({ loaded: true, dbError: String(err) });
     }
   },
 

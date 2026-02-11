@@ -22,11 +22,15 @@ interface SessionState {
   lastAnswerCorrect: boolean | null;
   newCardsSeen: number;
   missionId: MissionId | null;
+  hintActive: boolean;
+  hintUsedForCard: boolean;
 
   startSession: (missionId: MissionId) => void;
   submitAnswer: (responseNote: Note) => Promise<void>;
   advanceToNext: () => void;
   endSession: () => Promise<void>;
+  useHint: () => void;
+  dismissHint: () => void;
 }
 
 function generateId(): string {
@@ -41,6 +45,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   lastAnswerCorrect: null,
   newCardsSeen: 0,
   missionId: null,
+  hintActive: false,
+  hintUsedForCard: false,
 
   startSession: (missionId: MissionId) => {
     const session: Session = {
@@ -144,7 +150,34 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       phase: "playing",
       lastAnswerCorrect: null,
       newCardsSeen: updatedNewSeen,
+      hintUsedForCard: false,
     });
+  },
+
+  useHint: () => {
+    const { session, missionId, hintUsedForCard } = get();
+    if (!session || !missionId) return;
+
+    // Only deduct a point the first time hint is used per challenge
+    const shouldDeduct = !hintUsedForCard;
+    const newScore = shouldDeduct
+      ? Math.max(0, session.score - 1)
+      : session.score;
+    const mission = resolveMission(missionId);
+    const { sessionLength } = useSettingsStore.getState().settings;
+    const effectiveLength = sessionLength || mission.defaultSessionLength;
+    const prog = calculateProgression(newScore, effectiveLength);
+
+    set({
+      session: { ...session, score: newScore },
+      progression: prog,
+      hintActive: true,
+      hintUsedForCard: true,
+    });
+  },
+
+  dismissHint: () => {
+    set({ hintActive: false });
   },
 
   endSession: async () => {
@@ -161,6 +194,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       lastAnswerCorrect: null,
       newCardsSeen: 0,
       missionId: null,
+      hintActive: false,
+      hintUsedForCard: false,
     });
   },
 }));

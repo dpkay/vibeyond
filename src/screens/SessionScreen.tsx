@@ -11,8 +11,10 @@ import { AnimalPrompt } from "../components/AnimalPrompt";
 import { OctaveButtons } from "../components/OctaveButtons";
 import { ProgressionBar } from "../components/ProgressionBar";
 import { FeedbackOverlay } from "../components/FeedbackOverlay";
+import { HintOverlay } from "../components/HintOverlay";
 import { Celebration } from "../components/Celebration";
 import { StarField } from "../components/StarField";
+import { getHint } from "../logic/hints";
 import * as Tone from "tone";
 import type { MissionId, Note } from "../types";
 
@@ -55,10 +57,13 @@ export function SessionScreen() {
     currentCard,
     progression,
     lastAnswerCorrect,
+    hintActive,
     startSession,
     submitAnswer,
     advanceToNext,
     endSession,
+    useHint,
+    dismissHint,
   } = useSessionStore();
 
   const [muted, setMuted] = useState(false);
@@ -164,6 +169,35 @@ export function SessionScreen() {
               <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
             </svg>
           </IconButton>
+          {!isAnimal && (
+            <IconButton
+              onClick={() => { if (phase === "playing" && !hintActive) useHint(); }}
+              label="Hint"
+            >
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" opacity={phase === "playing" && !hintActive ? 0.8 : 0.3}>
+                {/* Cowboy hat silhouette */}
+                <path
+                  d="M3 17c0 0 2-1 9-1s9 1 9 1"
+                  stroke="#FBBF24"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M5 17c0.5-3 2-7 3-8.5C9 7 10 6.5 12 6.5s3 0.5 4 2c1 1.5 2.5 5.5 3 8.5"
+                  stroke="#FBBF24"
+                  strokeWidth="1.5"
+                  fill="rgba(251,191,36,0.15)"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M12 6.5c0-2 1.5-3.5 1.5-3.5"
+                  stroke="#FBBF24"
+                  strokeWidth="1"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </IconButton>
+          )}
         </div>
       </div>
 
@@ -183,6 +217,14 @@ export function SessionScreen() {
           />
         )}
       </div>
+
+      {/* Hint overlay */}
+      {hintActive && currentNote && (
+        <HintOverlay
+          hint={getHint(currentNote)}
+          onDismiss={dismissHint}
+        />
+      )}
 
       {/* Feedback overlay */}
       {phase === "feedback" && (

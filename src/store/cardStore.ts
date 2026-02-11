@@ -8,6 +8,7 @@ import { resolveMission } from "../missions";
 interface CardState {
   cards: AppCard[];
   loaded: boolean;
+  dbError: string | null;
   loadCards: () => Promise<void>;
   ensureCardsForMission: (missionId: MissionId) => Promise<void>;
   getCardsForMission: (missionId: MissionId) => AppCard[];
@@ -17,15 +18,21 @@ interface CardState {
 export const useCardStore = create<CardState>((set, get) => ({
   cards: [],
   loaded: false,
+  dbError: null,
 
   loadCards: async () => {
-    const cards = await db.cards.toArray();
-    const parsed = cards.map((c) => ({
-      ...c,
-      due: new Date(c.due),
-      last_review: c.last_review ? new Date(c.last_review) : undefined,
-    }));
-    set({ cards: parsed, loaded: true });
+    try {
+      const cards = await db.cards.toArray();
+      const parsed = cards.map((c) => ({
+        ...c,
+        due: new Date(c.due),
+        last_review: c.last_review ? new Date(c.last_review) : undefined,
+      }));
+      set({ cards: parsed, loaded: true });
+    } catch (err) {
+      console.error("Failed to load cards:", err);
+      set({ cards: [], loaded: true, dbError: String(err) });
+    }
   },
 
   ensureCardsForMission: async (missionId: MissionId) => {
@@ -46,10 +53,13 @@ export const useCardStore = create<CardState>((set, get) => ({
         }
       }
     } else {
+      // Build the set of valid card IDs for this mission
+      const validIds = new Set<string>();
       for (const clef of mission.enabledClefs) {
+        const range = mission.perClefRanges?.[clef] ?? { minNote, maxNote };
         const notes = noteRange(
-          { ...minNote, clef },
-          { ...maxNote, clef },
+          { ...range.minNote, clef },
+          { ...range.maxNote, clef },
           clef,
         );
         const filtered = mission.includeAccidentals
@@ -58,11 +68,23 @@ export const useCardStore = create<CardState>((set, get) => ({
         for (const note of filtered) {
           const noteKey = noteToId(note);
           const compoundId = cardId(missionId, noteKey);
+          validIds.add(compoundId);
           const existing = await db.cards.get(compoundId);
           if (!existing) {
             const card = createCard(noteKey, missionId);
             await db.cards.put(card);
           }
+        }
+      }
+
+      // Remove stale cards that are no longer in the valid set
+      // (e.g. cards with wrong clef-range combos from a prior bug)
+      const allMissionCards = await db.cards
+        .filter((c) => c.missionId === missionId)
+        .toArray();
+      for (const card of allMissionCards) {
+        if (!validIds.has(card.id)) {
+          await db.cards.delete(card.id);
         }
       }
     }

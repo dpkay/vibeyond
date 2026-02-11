@@ -103,6 +103,14 @@ export function reviewCard(card: AppCard, correct: boolean): AppCard {
  *   per session. Defaults to 2 to keep cognitive load manageable.
  * @returns The next {@link AppCard} to present, or `null` if the pool is empty.
  */
+/**
+ * Pick a random element from an array.
+ * Used to break ties when multiple cards have the same priority.
+ */
+function pickRandom<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
 export function selectNextCard(
   cards: AppCard[],
   newCardsSeenThisSession: number,
@@ -119,20 +127,31 @@ export function selectNextCard(
 
   const newCards = cards.filter((c) => c.state === 0);
 
-  // Priority 1: review cards that are already due
-  if (dueCards.length > 0) return dueCards[0];
-
-  // Priority 2: introduce a new card if the per-session cap allows
-  if (newCards.length > 0 && newCardsSeenThisSession < maxNewPerSession) {
-    return newCards[0];
+  // Priority 1: review cards that are already due — pick randomly among
+  // the most-overdue cards (those due within 1 minute of the earliest)
+  if (dueCards.length > 0) {
+    const earliest = dueCards[0].due.getTime();
+    const similar = dueCards.filter(
+      (c) => c.due.getTime() - earliest < 60_000,
+    );
+    return pickRandom(similar);
   }
 
-  // Fallback: no due cards and new-card limit reached — pick the card
-  // with the soonest due date regardless of state, so the session keeps going
+  // Priority 2: introduce a random new card if the per-session cap allows
+  if (newCards.length > 0 && newCardsSeenThisSession < maxNewPerSession) {
+    return pickRandom(newCards);
+  }
+
+  // Fallback: no due cards and new-card limit reached — pick randomly among
+  // the soonest-due cards so the session doesn't stall
   const sorted = [...cards].sort(
     (a, b) => a.due.getTime() - b.due.getTime(),
   );
-  return sorted[0];
+  const soonest = sorted[0].due.getTime();
+  const similar = sorted.filter(
+    (c) => c.due.getTime() - soonest < 60_000,
+  );
+  return pickRandom(similar);
 }
 
 export { scheduler, Rating };

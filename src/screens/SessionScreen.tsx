@@ -170,33 +170,35 @@ export function SessionScreen() {
             </svg>
           </IconButton>
           {!isAnimal && (
-            <IconButton
+            <button
+              className="flex items-center justify-center rounded-full cursor-pointer overflow-hidden"
+              style={{
+                width: 44,
+                height: 44,
+                background: "rgba(42,48,80,0.7)",
+                border: "none",
+                padding: 0,
+                opacity: phase === "playing" && !hintActive ? 1 : 0.35,
+                transition: "opacity 0.2s",
+              }}
               onClick={() => { if (phase === "playing" && !hintActive) useHint(); }}
-              label="Hint"
+              aria-label="Hint"
             >
-              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" opacity={phase === "playing" && !hintActive ? 0.8 : 0.3}>
-                {/* Cowboy hat silhouette */}
-                <path
-                  d="M3 17c0 0 2-1 9-1s9 1 9 1"
-                  stroke="#FBBF24"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-                <path
-                  d="M5 17c0.5-3 2-7 3-8.5C9 7 10 6.5 12 6.5s3 0.5 4 2c1 1.5 2.5 5.5 3 8.5"
-                  stroke="#FBBF24"
-                  strokeWidth="1.5"
-                  fill="rgba(251,191,36,0.15)"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M12 6.5c0-2 1.5-3.5 1.5-3.5"
-                  stroke="#FBBF24"
-                  strokeWidth="1"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </IconButton>
+              <img
+                src="/woody.png"
+                alt="Woody"
+                style={{
+                  width: "200%",
+                  height: "200%",
+                  objectFit: "contain",
+                  objectPosition: "center top",
+                  marginTop: 58,
+                  marginLeft: -5,
+                  mixBlendMode: "luminosity",
+                }}
+                draggable={false}
+              />
+            </button>
           )}
         </div>
       </div>

@@ -56,7 +56,7 @@ export function HintOverlay({ hint, onDismiss }: HintOverlayProps) {
           >
             {parts.map((part, i) =>
               part.startsWith("(") ? (
-                <span key={i} style={{ color: "rgba(255,255,255,0.35)" }}>
+                <span key={i} style={{ color: "rgba(255,255,255,0.55)" }}>
                   {part}
                 </span>
               ) : (

@@ -1,6 +1,6 @@
 const puppeteer = require('puppeteer-core');
 
-const BASE = 'http://localhost:5174';
+const BASE = 'http://localhost:5173';
 const DIR = '/home/dpkay/vibeyond/screenshots';
 const CHROME = '/home/dpkay/.cache/puppeteer/chrome/linux-145.0.7632.46/chrome-linux64/chrome';
 
@@ -24,25 +24,25 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     await page.close();
   }
 
-  // Session screen
+  // Animal mission session
   {
     const page = await browser.newPage();
     await page.setViewport({ width: 1180, height: 820, deviceScaleFactor: 2 });
-    await page.goto(`${BASE}/play`, { waitUntil: 'networkidle0', timeout: 10000 });
+    await page.goto(`${BASE}/play/animal-octaves`, { waitUntil: 'networkidle0', timeout: 10000 });
     await sleep(3000);
-    await page.screenshot({ path: `${DIR}/02-session.png` });
-    console.log('Captured session');
+    await page.screenshot({ path: `${DIR}/02-animal-session.png` });
+    console.log('Captured animal session');
     await page.close();
   }
 
-  // Settings screen
+  // Notes mission session
   {
     const page = await browser.newPage();
     await page.setViewport({ width: 1180, height: 820, deviceScaleFactor: 2 });
-    await page.goto(`${BASE}/settings`, { waitUntil: 'networkidle0', timeout: 10000 });
-    await sleep(2000);
-    await page.screenshot({ path: `${DIR}/03-settings.png` });
-    console.log('Captured settings');
+    await page.goto(`${BASE}/play/notes:treble`, { waitUntil: 'networkidle0', timeout: 10000 });
+    await sleep(3000);
+    await page.screenshot({ path: `${DIR}/03-notes-session.png` });
+    console.log('Captured notes session');
     await page.close();
   }
 

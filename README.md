@@ -2,55 +2,55 @@
 
 **Fly to the Moon, one note at a time!**
 
-A gamified piano sight-reading app that turns music practice into a space adventure. Built for a 5-year-old, powered by spaced repetition, and developed in a single evening with [Claude Code](https://code.claude.com/docs/en/overview).
+A gamified piano note recognition app that turns music practice into a space adventure. Built for a 5-year-old, powered by spaced repetition, and developed with [Claude Code](https://code.claude.com/docs/en/overview).
 
-<p>
-  <img src="screenshots/readme-session.png" width="48%" alt="Session screen" />
-  <img src="screenshots/readme-celebration.png" width="48%" alt="Celebration screen" />
+<p align="center">
+  <img src="screenshots/01-home.png" width="70%" alt="Home screen — choose your mission" />
 </p>
 <p>
-  <img src="screenshots/readme-cards.png" width="48%" alt="Card Inspector" />
-  <img src="screenshots/readme-settings.png" width="48%" alt="Settings screen" />
+  <img src="screenshots/02-animal-session.png" width="48%" alt="Animal octave mission" />
+  <img src="screenshots/03-notes-session.png" width="48%" alt="Note reading mission" />
 </p>
 
 ## The Origin Story
 
-Most great software is born out of necessity. Vibeyond was born out of a Sunday afternoon negotiation that I realized I was losing.
-
 My 5-year-old son, Luca, and I had a deal: 20 minutes of Toy Story, followed by 10 minutes of piano sight-reading. When the timer went off, the transition from the high-stakes adventures of Buzz Lightyear to the static black-and-white lines of a music staff felt impossible. Sight-reading felt like a chore; space travel felt like a mission.
 
-I'd been looking for the perfect use case to stress-test Claude Code — a project to take vibe coding to infinity and beyond. So I decided to see if I could bridge this gap before the new week starts.
-
-### The Build Sprint
-
-The speed of the development process was, frankly, astounding. By acting as the "product owner" and "architect" while letting the agent handle the heavy lifting, I went from a frustrated "no" to a ready-to-test app in a single evening:
-
-| Phase | Time | Effort |
-|-------|------|--------|
-| PDD (Product Design) | 30m | Braindumping thoughts and constraints to the agent. |
-| TDD (Technical Design) | 30m | Answering clarifying questions on architecture (FSRS, IndexedDB). |
-| MVP Build | 1h | Core logic, staff rendering, and piano keyboard (including debugging). |
-| UX Polish | 2h | Animating Buzz, the space theme, and the Woody hint system. |
-| **Total** | **4 Hours** | **Ready for Luca to test tomorrow.** |
+I'd been looking for the perfect use case to stress-test Claude Code -- a project to take vibe coding to infinity and beyond. So I decided to see if I could bridge this gap before the new week starts.
 
 ## How It Works
 
 A note appears on the staff. Tap the matching key on the piano. Get it right and Buzz flies closer to the Moon. Get it wrong and he drifts back. Reach the Moon to complete the session.
 
-Under the hood, [FSRS](https://github.com/open-spaced-repetition/ts-fsrs) (Free Spaced Repetition Scheduler) tracks which notes Luca knows well and which need more practice. Notes he struggles with come back more often. Notes he's mastered fade into the background. The app adapts to him, not the other way around.
+Under the hood, [FSRS](https://github.com/open-spaced-repetition/ts-fsrs) (Free Spaced Repetition Scheduler) tracks which notes the player knows well and which need more practice. Difficult notes come back more often; mastered notes fade into the background.
+
+## Missions
+
+### Animal Octaves
+An animal appears on screen (Elephant, Penguin, Hedgehog, or Mouse -- each mapped to an octave). Tap the matching octave button overlaid on the piano. Each animal plays a characteristic chord when selected. Animal icons on the buttons can be toggled on/off for difficulty.
+
+### Note Reading
+A note appears on the treble or bass clef staff. Identify it by tapping the correct key on the piano. Configurable options directly on the home screen:
+- **Treble** / **Bass** clef (or both)
+- **Accidentals** toggle (sharps and flats, including enharmonics like E#, Cb, B#, Fb)
 
 ## Features
 
-- **Space theme** -- Cozy, warm aesthetic inspired by Pixar's *La Luna*. Deep twilight blues, not harsh neon.
-- **Spaced repetition** -- FSRS schedules note challenges based on memory strength, not random order.
-- **Full accidental support** -- All sharps and flats, including theoretical enharmonics (E#, Cb, B#, Fb).
+- **Space theme** -- Cozy, warm aesthetic inspired by Pixar's *La Luna*. Deep twilight blues with animated star parallax.
+- **Two mission types** -- Animal octave recognition and note reading on the staff.
+- **Spaced repetition** -- FSRS schedules challenges based on memory strength, not random order.
+- **Salamander Grand Piano** -- Real piano samples via Tone.js, with a lightweight synth fallback while samples load.
+- **Hint system** -- Woody pops up with mnemonic hints for note reading (e.g. "Every Good Boy Does Fine").
+- **Realistic piano keyboard** -- No labels on keys. Parent-configurable range (full octaves, C2-B5 default).
+- **Progress tracking** -- Buzz flies along a progress bar toward the Moon. Mistakes cost a step back.
+- **Celebration screen** -- Firework animation with score summary when a session is completed.
 - **Enharmonic-aware evaluation** -- C# and Db are recognized as the same pitch.
-- **Realistic piano** -- No labels on keys. Configurable range (full octaves, C2-B5 default).
-- **Progress tracking** -- Buzz flies along a progress bar with star-dot milestones. Mistakes cost a full step back.
-- **Audio feedback** -- Tone.js plays the note you tap, with a global mute toggle.
 - **Card inspector** -- Parent-facing screen showing all FSRS cards, states, and success rates.
-- **Offline-first** -- IndexedDB via Dexie.js. No server, no account, no data leaves the device.
-- **iPad-optimized** -- Primary target is iPad in landscape, with safe area insets.
+- **Installable PWA** -- Service worker with auto-update. Install to home screen on iPad or any device.
+- **Offline-first** -- All data in IndexedDB via Dexie.js. No server, no account, no data leaves the device.
+- **iPad-optimized** -- Primary target is iPad in landscape, with iOS safe area support.
+- **Build stamp** -- Build ID shown on the home screen for version tracking.
+- **DB error recovery** -- If IndexedDB gets corrupted (e.g. after an update), a recovery dialog lets you reset and reload.
 
 ## Tech Stack
 
@@ -61,46 +61,69 @@ Under the hood, [FSRS](https://github.com/open-spaced-repetition/ts-fsrs) (Free 
 | Styling | Tailwind CSS 4 |
 | Animation | Framer Motion |
 | Music notation | VexFlow 5 |
-| Audio | Tone.js |
+| Audio | Tone.js (Salamander Grand Piano samples) |
 | Spaced repetition | ts-fsrs |
 | State management | Zustand |
 | Local database | Dexie.js (IndexedDB) |
+| PWA | vite-plugin-pwa (Workbox) |
 
 ## Getting Started
 
-On any computer on your home network:
-
 ```bash
 npm install
+npm run dev
+```
+
+The dev server starts on `http://localhost:5173`.
+
+To access from another device on your network (e.g. an iPad):
+
+```bash
 npm run dev -- --host
 ```
 
-Then open `http://your-server:5173` on your iPad (replace `your-server` with the computer's hostname or local IP address). The `--host` flag makes Vite listen on all network interfaces so the iPad can reach it.
+Then open `http://<your-ip>:5173` on the device.
+
+### Build for Production
+
+```bash
+npm run build
+npm run preview
+```
+
+### Run Tests
+
+```bash
+npm test
+```
+
+### Installing as a PWA
+
+Open the app in Safari (iPad/iPhone) or Chrome (Android/desktop), then use "Add to Home Screen" or the install prompt. The app works offline once installed and auto-updates when a new version is deployed.
 
 ### Parent Settings
 
 Tap the gear icon on the home screen to configure:
 
-- **Session length** -- How many correct answers to reach the Moon (default: 30).
+- **Session length** -- How many correct answers to reach the Moon (5-30, default 30).
 - **Note range** -- Which octaves appear on the piano keyboard.
-- **Clef** -- Treble, bass, or both.
-- **Card inspector** -- View all cards and their FSRS learning state.
+- **Card inspector** -- View all FSRS cards and their learning state.
 - **Reset data** -- Clear all progress and start fresh.
 
 ## Project Structure
 
 ```
 src/
-  components/    UI components (StaffDisplay, PianoKeyboard, ProgressionBar, ...)
+  components/    UI components (StaffDisplay, PianoKeyboard, AnimalPrompt, OctaveButtons, ...)
   screens/       Route screens (Home, Session, Settings, CardInspector)
-  logic/         Pure business logic (evaluate, scheduler, progression, noteUtils)
+  logic/         Pure business logic (evaluate, scheduler, progression, noteUtils, hints)
   store/         Zustand stores (settings, cards, session)
   db/            Dexie.js schema and database
+  missions.ts    Mission definitions and config-to-ID mapping
   types.ts       Shared TypeScript types
-docs/
-  PRD.md         Product requirements
-  TDD.md         Technical design
-  UX-SPEC.md     Visual design spec and review notes
+public/
+  *.png          Animal images (Pixar-style), character sprites, PWA icons
+  audio/         Chord audio samples for the animal mission
 ```
 
 ## License

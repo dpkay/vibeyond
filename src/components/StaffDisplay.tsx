@@ -107,7 +107,6 @@ export function StaffDisplay({ note }: StaffDisplayProps) {
     const svgHeight = 420;
     // VexFlow works in scaled coordinates
     const vfWidth = Math.round(svgWidth / scale);
-    const vfHeight = Math.round(svgHeight / scale);
 
     const renderer = new Renderer(el, Renderer.Backends.SVG);
     renderer.resize(svgWidth, svgHeight);
@@ -221,7 +220,7 @@ export function StaffDisplay({ note }: StaffDisplayProps) {
         // Notehead glyph -- warm gold
         svg.querySelectorAll(".vf-notehead text").forEach((t) => {
           t.setAttribute("fill", "#FBBF24");
-          t.style.fill = "#FBBF24";
+          (t as HTMLElement).style.fill = "#FBBF24";
         });
 
         // Note stem -- slightly transparent gold

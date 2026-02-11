@@ -77,7 +77,7 @@ export function CardInspectorScreen() {
   }, [cards, selectedMission]);
 
   const stateCounts = useMemo(() => {
-    const counts = { [State.New]: 0, [State.Learning]: 0, [State.Review]: 0, [State.Relearning]: 0 };
+    const counts: Record<number, number> = { [State.New]: 0, [State.Learning]: 0, [State.Review]: 0, [State.Relearning]: 0 };
     for (const card of filteredCards) {
       counts[card.state as number] = (counts[card.state as number] || 0) + 1;
     }

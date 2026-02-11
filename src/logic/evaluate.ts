@@ -59,3 +59,23 @@ export function evaluateAnswer(prompt: Note, response: Note): EvalResult {
         },
   };
 }
+
+/**
+ * Evaluate an octave-matching answer (for the Animal Octaves mission).
+ *
+ * Only compares the octave number — pitch and accidental are ignored.
+ * The prompt note is the root of the target octave (e.g., C4), and the
+ * response carries the selected octave.
+ */
+export function evaluateOctaveAnswer(prompt: Note, responseOctave: number): EvalResult {
+  const correct = prompt.octave === responseOctave;
+  return {
+    correct,
+    feedback: correct
+      ? undefined
+      : {
+          expected: `Octave ${prompt.octave}`,
+          actual: `Octave ${responseOctave}`,
+        },
+  };
+}

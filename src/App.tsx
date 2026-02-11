@@ -85,7 +85,7 @@ export default function App() {
       <AppLoader>
         <Routes>
           <Route path="/" element={<HomeScreen />} />
-          <Route path="/play" element={<SessionScreen />} />
+          <Route path="/play/:missionId" element={<SessionScreen />} />
           <Route path="/settings" element={<ParentSettingsScreen />} />
           <Route path="/cards" element={<CardInspectorScreen />} />
           {/* Dev/test route: renders the Celebration screen directly with

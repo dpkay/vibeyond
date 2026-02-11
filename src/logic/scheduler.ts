@@ -22,7 +22,7 @@ import {
   Rating,
   type Card as FSRSCard,
 } from "ts-fsrs";
-import type { AppCard, NoteId } from "../types";
+import type { AppCard, MissionId, NoteId } from "../types";
 
 /**
  * Child-tuned FSRS parameters for a 5-year-old learner.
@@ -56,9 +56,13 @@ const scheduler = fsrs(params);
  * @param noteId - The unique note identifier (e.g. `"treble:C:natural:4"`).
  * @returns A fresh {@link AppCard} ready to be stored in the database.
  */
-export function createCard(noteId: NoteId): AppCard {
+export function cardId(missionId: MissionId, noteId: NoteId): string {
+  return `${missionId}::${noteId}`;
+}
+
+export function createCard(noteId: NoteId, missionId: MissionId): AppCard {
   const base = createEmptyCard(new Date());
-  return { ...base, noteId };
+  return { ...base, id: cardId(missionId, noteId), noteId, missionId };
 }
 
 /**
@@ -80,7 +84,7 @@ export function reviewCard(card: AppCard, correct: boolean): AppCard {
   const now = new Date();
   const rating = correct ? Rating.Good : Rating.Again;
   const result = scheduler.next(card, now, rating);
-  return { ...result.card, noteId: card.noteId };
+  return { ...result.card, id: card.id, noteId: card.noteId, missionId: card.missionId };
 }
 
 /**

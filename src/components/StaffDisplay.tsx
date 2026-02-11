@@ -119,8 +119,9 @@ export function StaffDisplay({ note }: StaffDisplayProps) {
     const staveWidth = Math.round(vfWidth * 0.55);
     const staveX = Math.round((vfWidth - staveWidth) / 2);
     const staveY = 48;
+    const clef = note?.clef ?? "treble";
     const stave = new Stave(staveX, staveY, staveWidth);
-    stave.addClef("treble");
+    stave.addClef(clef);
 
     // Translucent white so staff lines blend with the dark starfield background
     stave.setStyle({
@@ -135,16 +136,19 @@ export function StaffDisplay({ note }: StaffDisplayProps) {
       const staveNote = new StaveNote({
         keys: [vexKey],
         duration: "q",
+        clef,
       });
       // IMPORTANT: We found that stem_direction and auto_stem in the StaveNote constructor
       // had no effect in our VexFlow 5 setup. Using setStemDirection() after construction
       // was the only approach that worked. Be careful refactoring this back into the constructor.
       //
-      // Stem down for B4 and above (on or above the middle staff line in treble clef).
-      // We calculate a simple ordinal value for the note: octave * 7 + pitch-index.
+      // Stem down for notes on or above the middle staff line.
+      // Treble: middle line = B4. Bass: middle line = D3.
       const noteVal = note.octave * 7 + ["C","D","E","F","G","A","B"].indexOf(note.pitch);
-      const b4Val = 4 * 7 + 6; // B=index 6, octave 4
-      staveNote.setStemDirection(noteVal >= b4Val ? -1 : 1);
+      const midLine = clef === "bass"
+        ? 3 * 7 + ["C","D","E","F","G","A","B"].indexOf("D") // D3
+        : 4 * 7 + ["C","D","E","F","G","A","B"].indexOf("B"); // B4
+      staveNote.setStemDirection(noteVal >= midLine ? -1 : 1);
 
       // Warm gold (#FBBF24) for the notehead and stem to match the app's hero color
       staveNote.setStyle({
@@ -206,11 +210,11 @@ export function StaffDisplay({ note }: StaffDisplayProps) {
         r.setAttribute("stroke", "rgba(255,255,255,0.12)");
       });
 
-      // Treble clef glyph -- must set both the attribute and the inline
+      // Clef glyph -- must set both the attribute and the inline
       // style because VexFlow sometimes sets one or the other.
       svg.querySelectorAll(".vf-clef text").forEach((t) => {
         t.setAttribute("fill", "rgba(255,255,255,0.6)");
-        t.style.fill = "rgba(255,255,255,0.6)";
+        (t as SVGElement).style.fill = "rgba(255,255,255,0.6)";
       });
 
       if (note) {

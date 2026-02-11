@@ -4,10 +4,12 @@
 
 | Term | Definition |
 |---|---|
-| **Mission** | A play configuration that defines what the child sees (prompt type), how they answer (input type), and which items are in the FSRS card pool. Missions are selected from the home screen. |
-| **Challenge** | A single question within a session. Depending on the mission, the prompt is a staff note or animal picture, and the response is a piano key press or octave button tap. |
-| **Session** | One complete play-through — Buzz starts at the left, the learner works through challenges, and the session ends when Buzz reaches the Moon (or the learner quits). Each session belongs to a specific mission. |
-| **Card** | An FSRS spaced-repetition card wrapping a single learnable item. In staff missions, this is a note. In Animal Octaves mission, this is an octave. Each mission has its own independent card pool. |
+| **Mission** | The top-level play choice: Animals or Notes. Each mission defines the prompt type (animal picture vs. staff note) and input type (octave buttons vs. piano keys). |
+| **Notes config** | The three toggles on the Notes mission card: Treble (on/off), Bass (on/off), Accidentals (on/off). Each unique combination produces its own FSRS card pool. Persisted to DB. |
+| **MissionId** | A string key derived from the mode + config. `"animal-octaves"` for Animals, or `"notes:treble"`, `"notes:bass"`, `"notes:treble+bass"`, `"notes:treble:acc"`, `"notes:bass:acc"`, `"notes:treble+bass:acc"` for Notes. Used as the card pool key and session tag. |
+| **Challenge** | A single question within a session. The prompt is a staff note (Notes mission) or animal picture (Animals mission); the response is a piano key press or octave button tap. |
+| **Session** | One complete play-through — Buzz starts at the left, the learner works through challenges, and the session ends when Buzz reaches the Moon (or the learner quits). Each session belongs to a specific MissionId. |
+| **Card** | An FSRS spaced-repetition card wrapping a single learnable item. In the Notes mission, this is a note. In the Animals mission, this is an octave. Each MissionId has its own independent card pool. |
 | **Progression** | The visual Buzz Lightyear → Moon mechanic. Correct answers advance Buzz, incorrect answers move him backward. Uses floor-at-zero scoring (no negative debt). Reaching the Moon completes the session. |
 | **Note** | A musical note identified by pitch (C–B), accidental (sharp/flat/natural), octave, and clef. |
 
@@ -15,7 +17,7 @@
 
 ## Architecture Overview
 
-Vibeyond is a multi-mission music recognition app. The core loop — show a prompt, accept input, evaluate, track mastery — is shared across missions. What varies per mission is the prompt type (staff note vs. animal picture), the input type (piano keyboard vs. octave buttons), and the card pool.
+Vibeyond is a configurable music recognition app with two missions. The core loop — show a prompt, accept input, evaluate, track mastery — is shared. What varies is the mission (Animals vs. Notes), and within Notes, the clef/accidentals configuration that determines the card pool.
 
 ```mermaid
 graph TD
@@ -23,7 +25,7 @@ graph TD
         A[StaffDisplay]
         A2[AnimalPrompt]
         B[PianoKeyboard]
-        B2[OctaveButtons]
+        B2[OctaveButtons overlay]
         C[ProgressionBar]
         D[FeedbackOverlay]
     end
@@ -32,14 +34,14 @@ graph TD
         E[SessionManager]
         F[Scheduler - FSRS]
         G[Progression]
-        M[MissionRegistry]
+        M[MissionResolver]
     end
 
     subgraph Persistence
         H[Dexie - IndexedDB]
     end
 
-    M -- defines prompt + input --> E
+    M -- resolves config to MissionId --> E
     E -- picks next card --> F
     E -- updates progress --> G
     F -- reads/writes cards --> H
@@ -52,11 +54,11 @@ graph TD
     E -- triggers --> D
 ```
 
-**UI layer** — React components for prompts (staff display, animal prompt), inputs (piano keyboard, octave buttons), progression bar, and feedback animations. These receive data and fire callbacks; they don't manage session state.
+**UI layer** — React components for prompts (staff display, animal prompt), inputs (piano keyboard, octave buttons overlay), progression bar, and feedback animations. These receive data and fire callbacks; they don't manage session state.
 
-**Logic layer** — The session manager orchestrates the core loop. A mission registry defines available missions and their configurations. The FSRS scheduler operates on mission-scoped card pools. Pure functions and Zustand stores, no UI.
+**Logic layer** — The session manager orchestrates the core loop. A mission resolver derives the MissionId and card pool from the user's mission + toggle configuration. The FSRS scheduler operates on per-MissionId card pools. Pure functions and Zustand stores, no UI.
 
-**Persistence layer** — Dexie wrapping IndexedDB. Stores FSRS cards (keyed by mission + item ID), session history, and settings. No backend, no network calls.
+**Persistence layer** — Dexie wrapping IndexedDB. Stores FSRS cards (keyed by MissionId + note ID), session history, settings, and the Notes toggle state. No backend, no network calls.
 
 ### React Component Tree
 
@@ -103,26 +105,25 @@ graph TD
 ### Core Entities
 
 ```typescript
-/** Identifies a mission. Used as a key prefix for FSRS cards. */
-type MissionId = "animal-octaves" | "treble-no-accidentals" | "treble" | "treble-bass";
+/**
+ * MissionId is a string key derived from the play mode + configuration.
+ * - Animals mission: "animal-octaves"
+ * - Notes mission: "notes:<clefs>[:<acc>]"
+ *   e.g. "notes:treble", "notes:bass", "notes:treble+bass",
+ *        "notes:treble:acc", "notes:bass:acc", "notes:treble+bass:acc"
+ *
+ * This key is used as the card pool scope and session tag.
+ */
+type MissionId = string;
 
 /**
- * A mission definition. Statically defined in code (not user-created).
- * Determines what the child sees and how they interact.
+ * The user's Notes mission toggle state. Persisted to settings DB
+ * so the home screen remembers the last configuration.
  */
-interface MissionDefinition {
-  id: MissionId;
-  name: string;                        // e.g. "Animal Octaves"
-  description: string;                 // shown on home screen
-  promptType: "animal" | "staff";      // what's displayed as the challenge
-  inputType: "octave-buttons" | "piano"; // how the child answers
-  enabledClefs: ("treble" | "bass")[]; // which clefs (staff missions only)
-  includeAccidentals: boolean;         // whether sharps/flats are in the pool
-  challengeRange: {                    // note range for staff missions
-    minNote: Note;
-    maxNote: Note;
-  };
-  defaultSessionLength: number;        // correct answers needed to reach Moon
+interface NotesConfig {
+  treble: boolean;           // include treble clef notes
+  bass: boolean;             // include bass clef notes
+  accidentals: boolean;      // include sharps/flats
 }
 
 /** A musical note identified by its pitch name, accidental, octave, and clef. */
@@ -137,34 +138,19 @@ interface Note {
 type NoteId = string;
 
 /**
- * Unique key for an FSRS card, scoped to a mission.
- * Format: "<missionId>:<itemId>" where itemId is a NoteId (staff missions)
- * or an octave identifier like "octave:2" (animal mission).
+ * An FSRS card wrapping a learnable item. Scoped to a MissionId so that
+ * each mode/configuration tracks its own independent progress.
  */
-type CardId = string;
-
-/**
- * An FSRS card wrapping a learnable item. Scoped to a mission so that
- * each mission tracks its own independent progress.
- */
-interface Card {
-  cardId: CardId;            // e.g. "treble:treble:C:natural:4" or "animal-octaves:octave:2"
-  missionId: MissionId;            // which mission this card belongs to
-  noteId: NoteId;            // the note (or octave) this card represents
-  // FSRS fields
-  stability: number;
-  difficulty: number;
-  due: Date;
-  lastReview: Date | null;
-  reps: number;
-  lapses: number;
-  state: "new" | "learning" | "review" | "relearning";
+interface AppCard extends FSRSCard {
+  id: string;               // compound PK: "${missionId}::${noteId}"
+  noteId: NoteId;           // the note (or octave root) this card represents
+  missionId: MissionId;     // which mission/config this card belongs to
 }
 
 /** A single challenge within a session. */
 interface Challenge {
-  promptNote: Note;          // the note shown on the staff (or octave for animal mission)
-  responseNote: Note | null; // the key the user pressed (null if unanswered)
+  promptNote: Note;          // the note shown (or octave for animal mode)
+  responseNote: Note | null; // the key/button the user pressed (null if unanswered)
   correct: boolean | null;
   responseTimeMs: number | null;
   timestamp: Date;
@@ -173,7 +159,7 @@ interface Challenge {
 /** A complete play-through from start to celebration (or quit). */
 interface Session {
   id: string;
-  missionId: MissionId;            // which mission this session was played in
+  missionId: MissionId;     // which mission/config this session was played in
   startedAt: Date;
   completedAt: Date | null;
   challenges: Challenge[];
@@ -189,69 +175,49 @@ interface Settings {
     minNote: Note;           // keyboard display range (visual only)
     maxNote: Note;
   };
-  sessionLength: number;     // default; may be overridden per-mission in future
+  sessionLength: number;     // correct answers needed to reach Moon
+  notesConfig: NotesConfig;  // last-used Notes mission toggles (persisted)
 }
 ```
 
-### Mission Registry
+### MissionId Resolution
+
+The `MissionId` is not a fixed enum — it's derived at runtime from the user's mode selection and toggle state:
 
 ```typescript
-/** Static mission definitions — not user-configurable. */
-const MISSIONS: MissionDefinition[] = [
-  {
-    id: "animal-octaves",
-    name: "Animal Octaves",
-    description: "Match animals to their sounds",
-    promptType: "animal",
-    inputType: "octave-buttons",
-    enabledClefs: [],
-    includeAccidentals: false,
-    challengeRange: { /* C2-B5 spanning 4 octaves */ },
-    defaultSessionLength: 10,
-  },
-  {
-    id: "treble-no-accidentals",
-    name: "Treble (White Keys)",
-    description: "Treble clef, no sharps or flats",
-    promptType: "staff",
-    inputType: "piano",
-    enabledClefs: ["treble"],
-    includeAccidentals: false,
-    challengeRange: { /* C4-B5 */ },
-    defaultSessionLength: 20,
-  },
-  {
-    id: "treble",
-    name: "Treble",
-    description: "Treble clef, all notes",
-    promptType: "staff",
-    inputType: "piano",
-    enabledClefs: ["treble"],
-    includeAccidentals: true,
-    challengeRange: { /* C4-A5 */ },
-    defaultSessionLength: 30,
-  },
-  {
-    id: "treble-bass",
-    name: "Treble + Bass",
-    description: "Both clefs, all notes",
-    promptType: "staff",
-    inputType: "piano",
-    enabledClefs: ["treble", "bass"],
-    includeAccidentals: true,
-    challengeRange: { /* C3-A5 */ },
-    defaultSessionLength: 30,
-  },
-];
+/** Derive MissionId from the Notes mission toggles. */
+function notesConfigToMissionId(config: NotesConfig): MissionId {
+  const clefs: string[] = [];
+  if (config.treble) clefs.push("treble");
+  if (config.bass) clefs.push("bass");
+  const base = `notes:${clefs.join("+")}`;
+  return config.accidentals ? `${base}:acc` : base;
+}
+
+// Examples:
+// { treble: true, bass: false, accidentals: false } → "notes:treble"
+// { treble: true, bass: true, accidentals: true }   → "notes:treble+bass:acc"
+// { treble: false, bass: true, accidentals: false }  → "notes:bass"
 ```
+
+Each unique MissionId gets its own independent FSRS card pool. Switching toggles doesn't destroy progress — previous configurations retain their cards in the DB.
+
+### Card Pool Generation
+
+When a session starts, cards are seeded for the resolved MissionId:
+
+- **Animals mission (`"animal-octaves"`):** 4 cards, one per octave (C2, C3, C4, C5).
+- **Notes mission:** Cards are generated from the challenge range for each enabled clef, filtered to naturals-only if accidentals are off.
+  - Treble range: C4–A5
+  - Bass range: E2–C4
 
 ### Dexie Schema
 
 ```typescript
 const db = new Dexie("VibeyondDB");
-db.version(2).stores({
-  cards: "cardId, missionId, due, state",  // cardId is now mission-scoped
-  sessions: "id, missionId, startedAt",    // sessions track which mission
+db.version(3).stores({
+  cards: "id, noteId, missionId, due, state",  // id = "${missionId}::${noteId}"
+  sessions: "id, missionId, startedAt",
   settings: "key",
 });
 ```

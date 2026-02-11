@@ -11,7 +11,7 @@ It is built as an offline-first Progressive Web App so it works seamlessly durin
 1. **Build musical recognition** — Children practice identifying musical elements at their level, from animal-themed octave matching (age 3) to full staff sight-reading with accidentals (age 5+).
 2. **Make practice joyful** — A space adventure theme with bouncy animations and a clear progression/regression system keeps young children engaged session after session.
 3. **Adapt to the learner** — A spaced repetition engine surfaces harder or frequently missed items more often so practice time is spent where it matters most.
-4. **Scale across ages** — A mission system lets children of different ages and skill levels all use the same app, each with an age-appropriate challenge.
+4. **Scale across ages** — Two missions (Animals and Notes) with configurable toggles let children of different ages and skill levels all use the same app, each with an age-appropriate challenge.
 5. **Work anywhere** — Full offline support means the app is usable on an airplane with zero connectivity.
 
 ## User Personas
@@ -37,24 +37,19 @@ It is built as an offline-first Progressive Web App so it works seamlessly durin
 
 ### Parent (secondary user)
 - Sets up the app and monitors progress
-- Selects the appropriate mission for each child
+- Configures the appropriate mission and toggles for each child
 - Wants to see which notes each child is struggling with
 - Values an app that is educational, not just entertaining
 
 ## Missions
 
-The app supports multiple missions, selected from the home screen. Each mission defines what the child sees as a prompt, what they tap to answer, and which items are in the FSRS card pool. Each mission maintains its own independent set of FSRS cards and progress.
+The home screen presents two missions in a single flat UI — no multi-step navigation.
 
-| Mission | Target age | Prompt | Input | Card pool |
-|------|-----------|--------|-------|-----------|
-| **Animal Octaves** | 3+ | Animal picture (elephant, penguin, hedgehog, mouse) | 4 large unlabeled octave buttons | 4 cards (one per octave) |
-| **Treble (no accidentals)** | 4+ | Single note on treble staff | Full piano keyboard | White-key naturals only (C4-B5) |
-| **Treble** | 5+ | Single note on treble staff | Full piano keyboard | All notes including accidentals (C4-A5) |
-| **Treble + Bass** | 5+ | Single note on treble or bass staff | Full piano keyboard | Both clefs, all notes |
+### Animals Mission
 
-### Animal Octaves — detail
+For pre-readers (age 3+) who can't read staff notation. Tap the big "Animals" card to start immediately — no configuration needed.
 
-Designed for pre-readers who can't read staff notation. Four animals are mapped to four octaves:
+Four animals are mapped to four octaves:
 
 | Animal | Octave | Rationale |
 |--------|--------|-----------|
@@ -63,24 +58,45 @@ Designed for pre-readers who can't read staff notation. Four animals are mapped 
 | Hedgehog | C4+ | Medium-high, small and quick |
 | Mouse | C5+ (highest) | Tiny animal = high squeaky sounds |
 
-The child hears a tone from a specific octave and sees the corresponding animal picture. They must tap the correct one of four large buttons (each showing an animal). This builds octave awareness — the foundational skill of "high vs. low" — without requiring any notation reading.
+The child sees an animal picture and must tap the matching animal button overlaid on top of the piano keyboard. Pressing the correct button plays the C of that octave so the child connects animal → sound. The piano keys are visible underneath but non-interactive, giving visual context for "where" each octave lives on a real keyboard. This builds octave awareness — the foundational skill of "high vs. low" — without requiring any notation reading.
 
-The four buttons replace the piano keyboard entirely in this mission. They are large, colorful, and clearly differentiated.
+### Notes Mission
+
+For piano learners (age 4+). Shows a note on the musical staff; child taps the matching key on the on-screen piano. The Notes card on the home screen has three inline toggle chips that configure the challenge:
+
+| Toggle | Options | Default | Effect |
+|--------|---------|---------|--------|
+| **Treble** | on/off | on | Include treble clef notes in the card pool |
+| **Bass** | on/off | off | Include bass clef notes in the card pool |
+| **#/b** | on/off | off | Include sharps and flats (accidentals) in the pool |
+
+At least one clef must stay enabled. The toggle state is persisted to IndexedDB so it's remembered across launches.
+
+This replaces the previous system of discrete missions (Treble, Treble no accidentals, Bass, Treble+Bass) with a single configurable Notes mission. The same combinations are possible — and more (e.g., bass-only with accidentals) — but the UI is simpler: one card with toggles instead of 4+ separate buttons.
+
+### Card pool per mission
+
+Each unique combination of toggles produces its own independent FSRS card pool. For example, "Treble on + Bass off + accidentals off" has a separate set of FSRS cards from "Treble on + Bass on + accidentals off". This means progress is tracked independently per configuration, and switching toggles doesn't lose progress — the child can go back to a previous configuration and pick up where they left off.
+
+The card pool key (used as the `missionId` in the database) is derived from the toggle state: `"notes:treble"`, `"notes:bass"`, `"notes:treble+bass"`, `"notes:treble:acc"`, `"notes:bass:acc"`, `"notes:treble+bass:acc"`, or `"animal-octaves"` for the Animals mission.
 
 ## User Stories
 
-### Core Loop (all missions)
-- **As a child**, I select my mission on the home screen and start playing immediately.
+### Core Loop
+- **As a child**, I pick Animals or Notes on the home screen and start playing immediately — no menus or steps.
 - **As a child**, when I get an answer right, I see Buzz Lightyear fly closer to the Moon so I feel motivated to keep going.
 - **As a child**, when I get an answer wrong, I see Buzz move backward so I understand mistakes matter and want to try harder.
 - **As a child**, when I reach the Moon, I see a celebration so I feel a sense of accomplishment.
 
-### Animal Octaves
-- **As Elio**, I see a picture of an animal and tap the matching button so I can learn which sounds go with which animals.
-- **As Elio**, I hear the sound play when I choose, so I learn to connect the animal picture with high/low pitch.
+### Animals Mission
+- **As Elio**, I see a picture of an animal and tap the matching button on the piano so I can learn which sounds go with which animals.
+- **As Elio**, I hear the note play when I choose, so I learn to connect the animal picture with high/low pitch.
+- **As Elio**, I see the piano underneath the animal buttons so I start to understand where each octave lives on a keyboard.
 
-### Staff Missions (Treble, Treble no accidentals, Treble + Bass)
+### Notes Mission
 - **As a child**, I see a note on the musical staff and tap the matching key on an on-screen piano so I can practice note recognition.
+- **As a parent**, I toggle Treble/Bass/Accidentals on the home screen before handing the iPad to my child, so they practice the right thing.
+- **As a parent**, the toggles remember their state, so I don't have to reconfigure every time.
 
 ### Spaced Repetition (all missions)
 - **As a child**, I am shown items I struggle with more frequently so I improve where I need it most.
@@ -120,17 +136,15 @@ This separation keeps the code simple and testable. If we ever want to add new l
 
 | Feature | Description |
 |---|---|
-| **Mission system** | Home screen presents a mission picker. Each mission has its own prompt type, input type, card pool, and FSRS progress. Missions are defined in code (not user-created). |
-| **Animal Octaves mission** | Pre-reader mission: shows animal pictures, child taps one of 4 large octave buttons. 4 FSRS cards total. |
-| **Treble (no accidentals) mission** | Shows treble staff notes, child taps piano keys. Only natural (white-key) notes in the challenge pool. |
-| **Treble mission** | Full treble clef with all accidentals — the current default experience. |
-| **Treble + Bass mission** | Both clefs active, full chromatic range. Notes are drawn from either clef. |
-| **Staff display** | Renders a single note on treble and/or bass clef staff. Clean, large, easy to read for a young child. |
-| **On-screen piano** | A playable piano keyboard with large, tactile buttons. Plays a piano sample on tap for audio feedback. |
-| **Answer evaluation** | Compares the tapped key to the displayed note using enharmonic-aware matching (e.g. C# = Db, E# = F). For Animal Octaves, compares the tapped octave button to the correct octave. Provides immediate visual and audio feedback (correct/incorrect). |
+| **Two-mission home screen** | Flat home screen with two cards: Animals (tap to play) and Notes (inline clef/accidentals toggles + Play). No multi-step navigation. Toggle state persisted to DB. |
+| **Animals mission** | Pre-reader mission: shows animal pictures, child taps animal buttons overlaid on the piano keyboard. 4 FSRS cards total. Pressing a button plays the C of that octave. |
+| **Notes mission** | Configurable note-reading mission. Parent toggles Treble/Bass/Accidentals on the home screen. Each toggle combination produces its own FSRS card pool with independent progress. |
+| **Staff display** | Renders a single note on treble and/or bass clef staff (clef determined by note). Clean, large, easy to read for a young child. |
+| **On-screen piano** | A playable piano keyboard with large, tactile buttons. Plays a piano sample on tap for audio feedback. Also serves as visual backdrop for Animals mode. |
+| **Answer evaluation** | Compares the tapped key to the displayed note using enharmonic-aware matching (e.g. C# = Db, E# = F). For Animals mode, compares the tapped octave to the correct octave. Provides immediate visual and audio feedback (correct/incorrect). |
 | **Buzz Lightyear progression** | Buzz starts at the left of the screen and advances toward the Moon on correct answers. Moves backward on incorrect answers. Uses floor-at-zero scoring (mistakes never create negative debt). Reaching the Moon triggers a celebration. |
-| **Spaced repetition engine** | Tracks mastery per card using FSRS. Each mission has its own independent card pool. Schedules reviews based on difficulty and error history. |
-| **Parent settings** | A parent-accessible settings screen to configure session length and other parameters. |
+| **Spaced repetition engine** | Tracks mastery per card using FSRS. Each mission/configuration has its own independent card pool. Schedules reviews based on difficulty and error history. |
+| **Parent settings** | A parent-accessible settings screen to configure session length and keyboard display range. |
 | **Galactic theme** | Warm, cozy space-themed UI (Pixar's La Luna feel) with stars, parallax effects, and a golden amber accent palette. Large buttons, bouncy animations, designed to feel like a premium digital toy. |
 
 ### P1 — Fast Follow
@@ -140,10 +154,10 @@ This separation keeps the code simple and testable. If we ever want to add new l
 | **Note sequences** | Display multiple notes on the staff that the child must play in order. All notes must be played correctly in sequence to score. Builds sight-reading fluency beyond single-note recognition. Could become its own mission. |
 | **Session summary** | After completing a session (reaching the Moon), show a summary of how many notes were attempted, accuracy, and which notes were hardest. |
 | **Hint system** | A Woody icon button on the session screen. Tapping it reveals a contextual mnemonic hint for the current note and moves Buzz back one step (cost for using it). Treble clef spaces: "FACE", treble clef lines: "Every Good Bird Deserves Fun". Bass clef spaces: "All Cows Eat Grass", bass clef lines: "Good Boys Do Fine Always". The relevant letter is highlighted. For accidentals, the hint shows the mnemonic for the natural note plus "with a sharp/flat". For ledger line notes outside the staff, a simpler positional hint (e.g. "One line below the staff = C"). |
-| **Card Inspector** | A dedicated `/cards` screen accessible from Settings. Shows FSRS cards filtered by the active mission with a summary bar (total count, breakdown by state). Each card row displays the note name, FSRS state badge, rep count, success rate, and due status. Sortable by note order, state, or success rate. |
+| **Card Inspector** | A dedicated `/cards` screen accessible from Settings. Shows FSRS cards filtered by mission/configuration with a summary bar (total count, breakdown by state). Each card row displays the note name, FSRS state badge, rep count, success rate, and due status. Sortable by note order, state, or success rate. |
 | **Offline support** | All assets (code, piano samples, images) are pre-cached via service worker. The app is fully functional with no network connection. |
 | **Difficulty progression** | Start with a small set of notes (e.g. Middle C through G in treble clef) and gradually unlock more notes as mastery is demonstrated. |
-| **Per-mission settings** | Allow parents to configure session length and other parameters independently for each mission. |
+| **Per-mission settings** | Allow parents to configure session length and other parameters independently for each mission/configuration. |
 
 ### P2 — Future
 
@@ -158,5 +172,5 @@ This separation keeps the code simple and testable. If we ever want to add new l
 - **Engagement**: Children voluntarily ask to play Vibeyond (the ultimate test for a young child).
 - **Accuracy improvement**: Measurable increase in correct-answer rate across sessions for previously difficult items.
 - **Session completion**: Children regularly complete full sessions (Buzz reaches the Moon) without losing interest.
-- **Cross-age adoption**: Multiple children of different ages can use the app independently by picking their mission.
+- **Cross-age adoption**: Multiple children of different ages can use the app independently by picking their mission (Animals or Notes with appropriate toggles).
 - **Offline reliability**: Zero failures or missing assets when used without a network connection.

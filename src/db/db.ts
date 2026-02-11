@@ -45,7 +45,7 @@ interface SettingsRow {
  * and `db.settings` have full TypeScript support for put/get/where etc.
  */
 const db = new Dexie("VibeyondDB") as Dexie & {
-  cards: EntityTable<AppCard, "noteId">;
+  cards: EntityTable<AppCard, "id">;
   sessions: EntityTable<Session, "id">;
   settings: EntityTable<SettingsRow, "key">;
 };
@@ -59,11 +59,26 @@ const db = new Dexie("VibeyondDB") as Dexie & {
  * - `sessions`: indexed on `startedAt` for chronological listing.
  * - `settings`: primary key only — small table, no queries beyond key lookup.
  */
+// Version 1 was the pre-mission schema (cards keyed by noteId).
+// Version 2 changes the cards PK to a compound id (missionId::noteId).
+// Dexie cannot change primary keys, so we delete old cards in the upgrade.
 db.version(1).stores({
   cards: "noteId, due, state",
   sessions: "id, startedAt",
   settings: "key",
 });
+
+db.version(2)
+  .stores({
+    cards: "id, noteId, missionId, due, state",
+    sessions: "id, missionId, startedAt",
+    settings: "key",
+  })
+  .upgrade((tx) => {
+    // Wipe old cards — they lack missionId and have the wrong PK.
+    // Fresh cards will be seeded by ensureCardsForMission on next session start.
+    return tx.table("cards").clear();
+  });
 
 export { db };
 export type { SettingsRow };

@@ -154,59 +154,6 @@ export function ParentSettingsScreen() {
             </div>
           </div>
 
-          {/* Clef Selection */}
-          <div
-            className="rounded-2xl backdrop-blur-sm flex flex-col"
-            style={{
-              background: "rgba(37,43,74,0.5)",
-              border: "1px solid #363d5c",
-              padding: 20,
-            }}
-          >
-            <h2 className="text-lg font-display font-extrabold text-gold-400 mb-1">
-              Clef
-            </h2>
-            <p className="text-sm text-muted" style={{ marginBottom: 16 }}>
-              Which clefs to practice
-            </p>
-            <div className="flex gap-3 mt-auto">
-              {(["treble", "bass"] as const).map((clef) => {
-                const enabled = settings.enabledClefs.includes(clef);
-                return (
-                  <motion.button
-                    key={clef}
-                    className="flex-1 py-3 rounded-xl font-display font-extrabold text-lg cursor-pointer"
-                    style={
-                      enabled
-                        ? {
-                            background:
-                              "linear-gradient(135deg, #FBBF24 0%, #F59E0B 100%)",
-                            color: "white",
-                            boxShadow: "0 0 16px rgba(251,191,36,0.25)",
-                          }
-                        : {
-                            background: "#363d5c",
-                            color: "#8890a8",
-                          }
-                    }
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => {
-                      // Prevent deselecting the last remaining clef --
-                      // at least one must always be active.
-                      if (enabled && settings.enabledClefs.length <= 1) return;
-                      const updated = enabled
-                        ? settings.enabledClefs.filter((c) => c !== clef)
-                        : [...settings.enabledClefs, clef];
-                      updateSettings({ enabledClefs: updated });
-                    }}
-                  >
-                    {clef === "treble" ? "Treble" : "Bass"}
-                  </motion.button>
-                );
-              })}
-            </div>
-          </div>
-
           {/* Note Range */}
           <div
             className="rounded-2xl backdrop-blur-sm flex flex-col"

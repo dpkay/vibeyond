@@ -104,6 +104,15 @@ export interface Session {
   /** Running count of incorrect answers. */
   totalIncorrect: number;
 
+  /**
+   * Running score with floor-at-zero semantics.
+   * Correct: score + 1. Incorrect: max(0, score - 1).
+   * Unlike `totalCorrect - totalIncorrect`, this never accumulates negative
+   * debt — so the first success after a streak of mistakes always advances
+   * the rocket. Session completes when score reaches sessionLength.
+   */
+  score: number;
+
   /** Whether the session was finished (child reached the Moon). */
   completed: boolean;
 }

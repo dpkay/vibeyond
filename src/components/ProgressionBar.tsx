@@ -89,10 +89,7 @@ function BuzzIcon() {
 export function ProgressionBar({ progress }: ProgressionBarProps) {
   const { settings } = useSettingsStore();
   const { session } = useSessionStore();
-  const totalCorrect = session?.totalCorrect ?? 0;
-  const totalIncorrect = session?.totalIncorrect ?? 0;
-  /** Net score is floored at 0 so the child never sees a negative number. */
-  const netScore = Math.max(0, totalCorrect - totalIncorrect);
+  const score = session?.score ?? 0;
   const sessionLength = settings.sessionLength;
 
   return (
@@ -114,7 +111,7 @@ export function ProgressionBar({ progress }: ProgressionBarProps) {
         */}
         {Array.from({ length: sessionLength - 1 }, (_, i) => {
           const pos = ((i + 1) / sessionLength) * 100;
-          const reached = totalCorrect > i;
+          const reached = score > i;
           return (
             <div
               key={i}
@@ -158,7 +155,7 @@ export function ProgressionBar({ progress }: ProgressionBarProps) {
             className="font-display font-bold text-sm leading-none"
             style={{ marginTop: 5, marginLeft: -45, color: "#a3b1bf" }}
           >
-            {netScore}
+            {score}
           </span>
         </div>
       </motion.div>

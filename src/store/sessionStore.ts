@@ -58,9 +58,8 @@ type SessionPhase = "idle" | "playing" | "feedback" | "complete";
  *   the staff, or `null` when no session is active.
  * @property phase - Current point in the session lifecycle state machine.
  * @property progression - A 0--1 float representing how far the rocket has
- *   traveled. Computed as `(correct - incorrect) / sessionLength`, clamped.
- *   Incorrect answers push the rocket backward, which adds a gentle stakes
- *   element without harsh punishment.
+ *   traveled. Computed as `score / sessionLength`, clamped. The score uses
+ *   floor-at-zero semantics so mistakes never create hidden debt.
  * @property lastAnswerCorrect - `true`/`false` after the most recent answer
  *   (drives the feedback animation), or `null` before any answer is given.
  * @property newCardsSeen - How many never-before-reviewed cards have been
@@ -125,6 +124,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       challenges: [],
       totalCorrect: 0,
       totalIncorrect: 0,
+      score: 0,
       completed: false,
     };
 
@@ -179,11 +179,19 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       timestamp: new Date(),
     };
 
+    // Floor-at-zero scoring: correct +1, incorrect max(0, score-1).
+    // This prevents negative debt — the first success after a mistake
+    // streak always moves Buzz forward.
+    const newScore = correct
+      ? session.score + 1
+      : Math.max(0, session.score - 1);
+
     const updatedSession: Session = {
       ...session,
       challenges: [...session.challenges, challenge],
       totalCorrect: session.totalCorrect + (correct ? 1 : 0),
       totalIncorrect: session.totalIncorrect + (correct ? 0 : 1),
+      score: newScore,
     };
 
     // Update FSRS card
@@ -191,16 +199,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     await useCardStore.getState().updateCard(updatedCard);
 
     const { sessionLength } = useSettingsStore.getState().settings;
-    const prog = calculateProgression(
-      updatedSession.totalCorrect,
-      updatedSession.totalIncorrect,
-      sessionLength,
-    );
+    const prog = calculateProgression(newScore, sessionLength);
 
-    const complete = isSessionComplete(
-      updatedSession.totalCorrect,
-      sessionLength,
-    );
+    const complete = isSessionComplete(newScore, sessionLength);
 
     if (complete) {
       updatedSession.completed = true;

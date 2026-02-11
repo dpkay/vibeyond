@@ -10,49 +10,46 @@
 /**
  * Calculate the rocket's position as a fraction from 0 (launch pad) to 1 (Moon).
  *
- * Uses **net correct** (`correct - incorrect`) as the numerator, meaning
- * each wrong answer costs one full step of progress. The result is clamped
- * to the [0, 1] range — the rocket can never go below the pad or past the Moon.
+ * Takes the session's running `score` (which already has floor-at-zero
+ * semantics applied on each answer) and divides by `sessionLength`.
+ * The result is clamped to [0, 1].
  *
- * @param correct - Number of correct answers so far in the session.
- * @param incorrect - Number of incorrect answers so far in the session.
- * @param sessionLength - Total correct answers required to reach the Moon
+ * @param score - The session's running score (never negative).
+ * @param sessionLength - Total score required to reach the Moon
  *   (from {@link Settings.sessionLength}).
- * @returns A number in [0, 1] representing the rocket's vertical position.
+ * @returns A number in [0, 1] representing the rocket's horizontal position.
  *
  * @example
  * ```ts
- * calculateProgression(3, 1, 10); // => 0.2  (net 2 out of 10)
- * calculateProgression(5, 0, 5);  // => 1.0  (Moon reached!)
- * calculateProgression(0, 3, 10); // => 0.0  (clamped, can't go negative)
+ * calculateProgression(2, 10);  // => 0.2
+ * calculateProgression(5, 5);   // => 1.0  (Moon reached!)
+ * calculateProgression(0, 10);  // => 0.0
  * ```
  */
 export function calculateProgression(
-  correct: number,
-  incorrect: number,
+  score: number,
   sessionLength: number,
 ): number {
   if (sessionLength <= 0) return 0;
-  const net = correct - incorrect; // incorrect answers penalize one full step
-  return Math.max(0, Math.min(1, net / sessionLength));
+  return Math.max(0, Math.min(1, score / sessionLength));
 }
 
 /**
  * Check whether the session is complete (the rocket has reached the Moon).
  *
- * Completion is based solely on `correct` count — incorrect answers slow
- * the rocket but never prevent completion. This ensures the child always
- * eventually succeeds, keeping the experience encouraging.
+ * Completion is based on the running `score` (which uses floor-at-zero
+ * semantics). The child must accumulate a score equal to `sessionLength`.
+ * Mistakes push the score back but never below zero, so the child always
+ * makes progress and eventually succeeds.
  *
- * @param correct - Number of correct answers so far in the session.
- * @param sessionLength - Total correct answers required to finish
+ * @param score - The session's running score (never negative).
+ * @param sessionLength - Score required to finish
  *   (from {@link Settings.sessionLength}).
- * @returns `true` if the child has answered enough correctly to trigger
- *   the celebration screen.
+ * @returns `true` if the score has reached the session goal.
  */
 export function isSessionComplete(
-  correct: number,
+  score: number,
   sessionLength: number,
 ): boolean {
-  return correct >= sessionLength;
+  return score >= sessionLength;
 }

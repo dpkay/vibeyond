@@ -255,6 +255,10 @@ export function HomeScreen() {
           </div>
         </motion.div>
       </motion.div>
+
+      <span className="absolute bottom-2 right-3 text-xs z-10" style={{ color: "rgba(136,144,168,0.4)" }}>
+        Build {__BUILD_TIME__}
+      </span>
     </div>
   );
 }

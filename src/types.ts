@@ -63,6 +63,13 @@ export interface MissionDefinition {
     minNote: Note;
     maxNote: Note;
   };
+  /**
+   * Optional per-clef challenge ranges. When present, card generation uses
+   * these instead of `challengeRange` so that each clef only gets notes in
+   * its natural register (e.g. treble gets C4–A5, bass gets E2–C4).
+   * Only needed for multi-clef missions.
+   */
+  perClefRanges?: Record<string, { minNote: Note; maxNote: Note }>;
   defaultSessionLength: number;
 }
 

@@ -98,6 +98,10 @@ export function resolveMission(id: MissionId): MissionDefinition {
     enabledClefs,
     includeAccidentals: hasAcc,
     challengeRange: { minNote, maxNote },
+    perClefRanges: (hasTreble && hasBass) ? {
+      treble: { minNote: TREBLE_RANGE.minNote, maxNote: TREBLE_RANGE.maxNote },
+      bass: { minNote: BASS_RANGE.minNote, maxNote: BASS_RANGE.maxNote },
+    } : undefined,
     defaultSessionLength: 30,
   };
 }

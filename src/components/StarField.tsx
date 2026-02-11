@@ -32,8 +32,8 @@
  *   interactive content without blocking taps.
  */
 
-import { useMemo } from "react";
-import { motion, useSpring, useTransform } from "framer-motion";
+import { useEffect, useMemo } from "react";
+import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 
 /**
  * Descriptor for a single star in the field.
@@ -102,8 +102,13 @@ function seededRandom(seed: number) {
  */
 const PARALLAX_Y = { 1: 4, 2: 12, 3: 24 } as const;
 
-/** Horizontal parallax multipliers (negative = stars drift left as Buzz flies right). */
-const PARALLAX_X = { 1: -8, 2: -24, 3: -48 } as const;
+/**
+ * Horizontal parallax multipliers (negative = stars drift left as Buzz flies
+ * right). These are large enough to create a visible "flying through space"
+ * effect when progression changes. Star x-positions are widened to compensate
+ * so stars don't run out at the edges.
+ */
+const PARALLAX_X = { 1: -600, 2: -1800, 3: -3600 } as const;
 
 /**
  * Three-layer animated starfield with optional parallax scrolling.
@@ -124,9 +129,9 @@ export function StarField({ parallaxOffset = 0 }: StarFieldProps) {
     const result: Star[] = [];
 
     // Layer 1: distant -- tiny, dim, no animation (static backdrop)
-    for (let i = 0; i < 45; i++) {
+    for (let i = 0; i < 120; i++) {
       result.push({
-        x: rand() * 100,
+        x: rand() * 200 - 50,
         y: rand() * 100,
         size: rand() * 1 + 1,
         opacityMin: rand() * 0.15 + 0.1,
@@ -138,9 +143,9 @@ export function StarField({ parallaxOffset = 0 }: StarFieldProps) {
     }
 
     // Layer 2: mid -- medium size, gentle twinkle (4-7s cycle)
-    for (let i = 0; i < 25; i++) {
+    for (let i = 0; i < 60; i++) {
       result.push({
-        x: rand() * 100,
+        x: rand() * 400 - 150,
         y: rand() * 100,
         size: rand() * 1.5 + 1.5,
         opacityMin: rand() * 0.2 + 0.15,
@@ -152,9 +157,9 @@ export function StarField({ parallaxOffset = 0 }: StarFieldProps) {
     }
 
     // Layer 3: bright accent -- larger, glowing, slow pulse (5-7s cycle)
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 15; i++) {
       result.push({
-        x: rand() * 100,
+        x: rand() * 600 - 250,
         y: rand() * 100,
         size: rand() * 2.5 + 3.5,
         opacityMin: rand() * 0.2 + 0.35,
@@ -169,8 +174,14 @@ export function StarField({ parallaxOffset = 0 }: StarFieldProps) {
     return result;
   }, []);
 
-  // Smooth spring for parallax so layer shifts glide rather than snap
-  const springOffset = useSpring(parallaxOffset, {
+  // Explicit MotionValue so we can imperatively .set() on prop changes,
+  // then wrap it in a spring for smooth gliding.
+  const rawOffset = useMotionValue(parallaxOffset);
+  useEffect(() => {
+    rawOffset.set(parallaxOffset);
+  }, [parallaxOffset, rawOffset]);
+
+  const springOffset = useSpring(rawOffset, {
     stiffness: 60,
     damping: 20,
   });
@@ -187,12 +198,16 @@ export function StarField({ parallaxOffset = 0 }: StarFieldProps) {
   const layerX = { 1: layer1X, 2: layer2X, 3: layer3X };
 
   return (
-    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+    <div className="fixed inset-0 pointer-events-none z-0" style={{ overflow: "visible" }}>
       {[1, 2, 3].map((layer) => (
         <motion.div
           key={layer}
-          className="absolute inset-0"
-          style={{ x: layerX[layer as 1 | 2 | 3], y: layerY[layer as 1 | 2 | 3] }}
+          className="absolute"
+          style={{
+            inset: "-10% -100%",
+            x: layerX[layer as 1 | 2 | 3],
+            y: layerY[layer as 1 | 2 | 3],
+          }}
         >
           {stars
             .filter((s) => s.layer === layer)

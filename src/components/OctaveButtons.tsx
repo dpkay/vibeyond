@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
 import type { Note } from "../types";
-import { getAnimalForOctave, AnimalSvg } from "./AnimalPrompt";
+import { getAnimalForOctave, getAnimalChord, AnimalSvg } from "./AnimalPrompt";
 import { useAudio } from "./useAudio";
 import { useSettingsStore } from "../store/settingsStore";
 
@@ -18,7 +18,7 @@ interface OctaveButtonsProps {
  * button plays the C of that octave and submits the answer.
  */
 export function OctaveButtons({ onPress, disabled }: OctaveButtonsProps) {
-  const { playNote } = useAudio();
+  const { playChord } = useAudio();
   const { settings } = useSettingsStore();
 
   const startOctave = settings.noteRange.minNote.octave;
@@ -34,7 +34,7 @@ export function OctaveButtons({ onPress, disabled }: OctaveButtonsProps) {
   const handlePress = useCallback(
     (octave: number) => {
       if (disabled) return;
-      playNote(`C${octave}`);
+      playChord(getAnimalChord(octave));
       const note: Note = {
         pitch: "C",
         accidental: "natural",
@@ -43,7 +43,7 @@ export function OctaveButtons({ onPress, disabled }: OctaveButtonsProps) {
       };
       onPress(note);
     },
-    [disabled, playNote, onPress],
+    [disabled, playChord, onPress],
   );
 
   return (

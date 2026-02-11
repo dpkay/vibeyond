@@ -154,5 +154,27 @@ export function useAudio() {
     [isLoaded, ensureFallback],
   );
 
-  return { playNote, isLoaded };
+  /**
+   * Plays multiple notes simultaneously as a chord.
+   *
+   * @param noteNames - Array of Tone.js note strings, e.g. `["C2", "E2", "G2", "C3"]`.
+   * @param duration  - Duration per note (default 1.2s for a rich sustain).
+   */
+  const playChord = useCallback(
+    async (noteNames: string[], duration = 1.2) => {
+      if (Tone.getContext().state !== "running") {
+        await Tone.start();
+      }
+
+      if (isLoaded && samplerRef.current) {
+        samplerRef.current.triggerAttackRelease(noteNames, duration);
+      } else {
+        const fallback = ensureFallback();
+        fallback.triggerAttackRelease(noteNames, duration);
+      }
+    },
+    [isLoaded, ensureFallback],
+  );
+
+  return { playNote, playChord, isLoaded };
 }

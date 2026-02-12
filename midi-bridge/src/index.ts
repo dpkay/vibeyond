@@ -18,6 +18,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { hostname } from "node:os";
 import { existsSync } from "node:fs";
+import { select } from "@inquirer/prompts";
 
 import sirv from "sirv";
 import { WebSocketServer, WebSocket } from "ws";
@@ -77,17 +78,39 @@ function broadcast(data: string) {
 const input = new midi.Input();
 const portCount = input.getPortCount();
 
+async function chooseMidiPort(): Promise<{ index: number; name: string } | null> {
+  if (portCount === 0) {
+    console.warn("\n  Warning: No MIDI input ports found. Connect a MIDI keyboard and restart.\n");
+    return null;
+  }
+
+  const ports = Array.from({ length: portCount }, (_, i) => ({
+    name: input.getPortName(i),
+    value: i,
+  }));
+
+  if (ports.length === 1) {
+    return { index: 0, name: ports[0].name };
+  }
+
+  console.log();
+  const chosen = await select({
+    message: "Multiple MIDI devices found — which one?",
+    choices: ports,
+  });
+
+  return { index: chosen, name: input.getPortName(chosen) };
+}
+
+const port = await chooseMidiPort();
 let midiPortName = "(none)";
 
-if (portCount > 0) {
-  // Open the first available MIDI input
-  midiPortName = input.getPortName(0);
-  input.openPort(0);
+if (port) {
+  midiPortName = port.name;
+  input.openPort(port.index);
 
   input.on("message", (_deltaTime, message) => {
     const [status, note, velocity] = message;
-    // Status 0x90 = note-on (channel 1). Velocity 0 = note-off per MIDI spec.
-    const channel = status & 0x0f;
     const type = status & 0xf0;
 
     if (type === 0x90 && velocity > 0) {
@@ -96,8 +119,6 @@ if (portCount > 0) {
       broadcast(JSON.stringify({ type: "note-off", note, velocity: 0 }));
     }
   });
-} else {
-  console.warn("\n  Warning: No MIDI input ports found. Connect a MIDI keyboard and restart.\n");
 }
 
 // --- Start server ---

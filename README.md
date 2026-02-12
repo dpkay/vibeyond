@@ -82,15 +82,14 @@ Connect a physical digital piano via USB to a Mac/PC on the same WiFi as your iP
 **Prerequisites:** Node.js 18+, a USB MIDI keyboard connected to the computer.
 
 ```bash
-# 1. Build the PWA (outputs to dist/)
-npm run build
+# 1. Install PWA dependencies and build (outputs to dist/)
+npm install && npm run build
 
-# 2. Install bridge dependencies (first time only)
-cd midi-bridge && npm install
-
-# 3. Start the bridge
-npm start
+# 2. Install bridge dependencies and start
+cd midi-bridge && npm install && npm start
 ```
+
+If multiple MIDI devices are detected, an interactive selector lets you pick which one. With a single device it's automatic.
 
 Output:
 ```

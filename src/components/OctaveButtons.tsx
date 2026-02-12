@@ -2,12 +2,12 @@ import { useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
 import type { Note } from "../types";
 import { getAnimalForOctave, getAnimalChord, AnimalSvg } from "./AnimalPrompt";
-import { useAudio } from "./useAudio";
 import { useSettingsStore } from "../store/settingsStore";
 
 interface OctaveButtonsProps {
   onPress: (note: Note) => void;
   disabled: boolean;
+  playChord: (noteNames: string[], duration?: number) => void;
 }
 
 /**
@@ -17,8 +17,7 @@ interface OctaveButtonsProps {
  * to align with the corresponding octave on the piano below. Pressing a
  * button plays the C of that octave and submits the answer.
  */
-export function OctaveButtons({ onPress, disabled }: OctaveButtonsProps) {
-  const { playChord } = useAudio();
+export function OctaveButtons({ onPress, disabled, playChord }: OctaveButtonsProps) {
   const { settings } = useSettingsStore();
 
   const startOctave = settings.noteRange.minNote.octave;

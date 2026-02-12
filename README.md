@@ -47,6 +47,7 @@ A note appears on the treble or bass clef staff. Identify it by tapping the corr
 - **Celebration screen** -- Firework animation with score summary when a session is completed.
 - **Enharmonic-aware evaluation** -- C# and Db are recognized as the same pitch.
 - **Card inspector** -- Parent-facing screen showing all FSRS cards, states, and success rates.
+- **MIDI keyboard support** -- Connect a real piano via USB and the MIDI bridge server. Auto-detects, no configuration.
 - **Installable PWA** -- Service worker with auto-update. Install to home screen on iPad or any device.
 - **Offline-first** -- All data in IndexedDB via Dexie.js. No server, no account, no data leaves the device.
 - **iPad-optimized** -- Primary target is iPad in landscape, with iOS safe area support.
@@ -70,7 +71,44 @@ A note appears on the treble or bass clef staff. Identify it by tapping the corr
 
 ## Try It
 
-The app is live and continuously updated at **https://vibeyond.vercel.app/**. Install it as a PWA from Safari (iPad/iPhone) or Chrome (Android/desktop) using "Add to Home Screen" — it works offline once installed and auto-updates when a new version is deployed.
+There are two ways to use the app:
+
+### 1. Vercel (touch only)
+The app is live at **https://vibeyond.vercel.app/**. Install it as a PWA from Safari or Chrome using "Add to Home Screen" — it works offline once installed and auto-updates.
+
+### 2. MIDI Bridge (physical keyboard)
+Connect a physical digital piano via USB to a Mac/PC on the same WiFi as your iPad. A small Node.js bridge server reads USB MIDI, serves the built PWA, and forwards note events over WebSocket — all on one port.
+
+**Prerequisites:** Node.js 18+, a USB MIDI keyboard connected to the computer.
+
+```bash
+# 1. Build the PWA (outputs to dist/)
+npm run build
+
+# 2. Install bridge dependencies (first time only)
+cd midi-bridge && npm install
+
+# 3. Start the bridge
+npm start
+```
+
+Output:
+```
+Vibeyond MIDI Bridge
+  MIDI input: "Yamaha Digital Piano"
+  Serving:    http://my-mac.local:3001
+
+Open the URL above on your iPad.
+```
+
+Open that URL on your iPad. The app auto-detects the MIDI bridge and shows a green "MIDI" indicator. Physical key presses play audio, light up on-screen keys, and submit answers — no configuration needed.
+
+**Platform notes:**
+- **macOS** -- `.local` hostname works out of the box via Bonjour
+- **Windows** -- You may need to use the computer's IP address instead of `.local`
+- **iOS** -- Will prompt once to allow local network access; tap "Allow"
+
+Both modes use the same PWA code. MIDI auto-detects based on how the app is served.
 
 ## Building from Source
 

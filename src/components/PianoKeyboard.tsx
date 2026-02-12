@@ -27,7 +27,6 @@
 import { useState, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
 import type { Note } from "../types";
-import { useAudio } from "./useAudio";
 import { useSettingsStore } from "../store/settingsStore";
 
 /**
@@ -38,10 +37,14 @@ import { useSettingsStore } from "../store/settingsStore";
  *   to evaluate the answer.
  * @property disabled - When `true`, key taps are ignored and the press
  *   animation is suppressed. Used while feedback overlays are shown.
+ * @property playNote - Plays a note via Tone.js (lifted from useAudio).
+ * @property externalPressedKey - Key ID to highlight externally (e.g. from MIDI input).
  */
 interface PianoKeyboardProps {
   onKeyPress: (note: Note) => void;
   disabled?: boolean;
+  playNote: (noteName: string) => void;
+  externalPressedKey?: string | null;
 }
 
 /** The seven natural pitch names in ascending order within a single octave. */
@@ -159,8 +162,7 @@ function toToneName(pitch: string, accidental: string, octave: number): string {
  *
  * @param props - See {@link PianoKeyboardProps}.
  */
-export function PianoKeyboard({ onKeyPress, disabled }: PianoKeyboardProps) {
-  const { playNote } = useAudio();
+export function PianoKeyboard({ onKeyPress, disabled, playNote, externalPressedKey }: PianoKeyboardProps) {
   const { settings } = useSettingsStore();
   /** Tracks which key is currently in its 200 ms "pressed" highlight state. */
   const [pressedKey, setPressedKey] = useState<string | null>(null);
@@ -261,7 +263,7 @@ export function PianoKeyboard({ onKeyPress, disabled }: PianoKeyboardProps) {
           {/* White keys -- rendered first (lower z-index) */}
           {whiteKeys.map((key) => {
             const id = keyId(key);
-            const isPressed = pressedKey === id;
+            const isPressed = pressedKey === id || externalPressedKey === id;
             return (
               <motion.button
                 key={id}
@@ -290,7 +292,7 @@ export function PianoKeyboard({ onKeyPress, disabled }: PianoKeyboardProps) {
           {/* Black keys -- rendered second (higher z-index) to overlay white keys */}
           {blackKeys.map((key) => {
             const id = keyId(key);
-            const isPressed = pressedKey === id;
+            const isPressed = pressedKey === id || externalPressedKey === id;
             // Black key is offset 0.65 white-key-widths from its parent white key
             const leftPercent =
               (((key.whiteIndex ?? 0) + 0.65) / whiteCount) * 100;

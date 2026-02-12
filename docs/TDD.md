@@ -62,6 +62,8 @@ graph TD
     A2 -- displays animal --> SS
     B -- sends key press --> SS
     B2 -- sends octave tap --> SS
+    MIDI[MIDI Keyboard] -- USB --> Bridge[midi-bridge]
+    Bridge -- WebSocket --> SS
     SS -- drives --> C
     SS -- triggers --> D
     D2 -- shows mnemonic --> H
@@ -96,6 +98,7 @@ graph TD
     SessionScreen --> HintOverlay
     SessionScreen -->|staff missions| PianoKeyboard
     SessionScreen -->|animal mission| OctaveButtons
+    SessionScreen --> MidiStatusIndicator
     SessionScreen --> StarField["StarField (parallax)"]
 ```
 
@@ -371,6 +374,12 @@ const scheduler = fsrs(params);
 
 ```
 vibeyond/
+├── midi-bridge/                     # MIDI bridge server (Node.js)
+│   ├── package.json
+│   ├── tsconfig.json
+│   ├── src/
+│   │   └── index.ts                 # MIDI reader + WebSocket + static file server
+│   └── README.md
 ├── docs/
 │   ├── PRD.md
 │   ├── TDD.md
@@ -400,7 +409,10 @@ vibeyond/
 │   │   ├── scheduler.ts         # FSRS wrapper (createCard, reviewCard, selectNextCard)
 │   │   ├── evaluate.ts          # evaluateAnswer + evaluateOctaveAnswer (enharmonic-aware)
 │   │   ├── noteUtils.ts         # noteToId, noteFromId, noteRange, noteToSemitone, etc.
-│   │   └── hints.ts             # getHint — mnemonic hint generator for treble/bass lines/spaces
+│   │   ├── hints.ts             # getHint — mnemonic hint generator for treble/bass lines/spaces
+│   │   ├── midiUtils.ts         # midiNoteToNote, midiNoteToToneName, midiNoteToKeyId
+│   │   └── __tests__/
+│   │       └── midiUtils.test.ts    # Unit tests for MIDI conversion functions
 │   ├── components/              # React components
 │   │   ├── StaffDisplay.tsx     # VexFlow 5 SVG staff rendering (gold notehead, glow filter)
 │   │   ├── PianoKeyboard.tsx    # Interactive piano (Salamander samples, no labels, gold flash)
@@ -411,7 +423,9 @@ vibeyond/
 │   │   ├── FeedbackOverlay.tsx  # Gold star burst (correct) / red X shake (incorrect)
 │   │   ├── HintOverlay.tsx      # Mnemonic hint overlay (auto-dismiss 4s)
 │   │   ├── Celebration.tsx      # Moon-reached celebration (confetti, score, Play Again)
-│   │   └── StarField.tsx        # 3-layer parallax starfield (seeded PRNG, 195 stars)
+│   │   ├── StarField.tsx        # 3-layer parallax starfield (seeded PRNG, 195 stars)
+│   │   ├── useMidiBridge.ts     # WebSocket client hook (auto-detect MIDI bridge, reconnect)
+│   │   └── MidiStatusIndicator.tsx  # MIDI connection status dot (green/amber/hidden)
 │   ├── screens/                 # Top-level route screens
 │   │   ├── HomeScreen.tsx       # Mission picker (Animals + Notes cards, toggle chips)
 │   │   ├── SessionScreen.tsx    # Core gameplay (adapts per mission, side controls)
@@ -495,12 +509,65 @@ GitHub Actions pipeline (planned):
 
 ---
 
+## MIDI Input (WebSocket Bridge)
+
+Physical MIDI keyboard support uses a WebSocket bridge architecture to work around Safari/iOS not supporting the Web MIDI API.
+
+### Architecture
+
+```
+MIDI Keyboard → USB → midi-bridge (Node.js, port 3001) → WebSocket → SessionScreen
+```
+
+The bridge server (`midi-bridge/`) does three things on a single HTTP server:
+
+1. **Static file serving** — serves the built PWA from `../dist/` using `sirv` with SPA fallback
+2. **WebSocket at `/midi`** — accepts connections from the PWA, filtered by URL path
+3. **MIDI forwarding** — reads USB MIDI via `@julusian/midi` (CoreMIDI/ALSA native bindings), broadcasts note events as JSON to all connected WebSocket clients
+
+### Same-Origin Serving
+
+The iPad loads the app from `http://computer.local:3001` instead of Vercel. Since the bridge serves both the PWA and the WebSocket on the same origin, there are no mixed-content issues. When traveling (no MIDI needed), the Vercel URL works as usual.
+
+### Auto-Detection
+
+The PWA tries to connect to `ws://${location.host}/midi` on session start. If it connects (bridge is serving), MIDI is live and a green status dot appears. If the connection fails (Vercel, no bridge), it stays silent — no errors, no UI clutter. No settings or configuration needed.
+
+### WebSocket Protocol
+
+Messages are JSON objects:
+```json
+{"type":"note-on","note":60,"velocity":100}
+{"type":"note-off","note":60,"velocity":0}
+```
+Velocity-0 note-on is treated as note-off per MIDI spec. Only note-on events with velocity > 0 trigger answers.
+
+### Auto-Reconnect
+
+The client uses exponential backoff (1s → 2s → 4s → max 10s) and resets on successful connection. Reconnect stops on component unmount.
+
+### Cross-Platform Support
+
+- **macOS** — `.local` hostname works out of the box via Bonjour/mDNS
+- **Windows** — May need to use IP address instead of `.local`; `@julusian/midi` uses Windows Multimedia MIDI
+- **Linux** — Uses ALSA; install `avahi-daemon` for `.local` resolution
+
+### Key Functions
+
+```typescript
+// src/logic/midiUtils.ts — pure MIDI conversion
+midiNoteToNote(midiNumber: number): Note       // MIDI 60 → { pitch: "C", accidental: "natural", octave: 4, clef: "treble" }
+midiNoteToToneName(midiNumber: number): string  // MIDI 60 → "C4" (for Tone.js)
+midiNoteToKeyId(midiNumber: number): string     // MIDI 60 → "C4" (for key highlight)
+```
+
 ## Security Considerations
 
 **Threat model**: This is a single-user, local-only app with no authentication, no backend, and no sensitive data. The attack surface is minimal.
 
 - **No auth required** — the app is used by one family on their own device. Parent settings are accessible but not security-critical.
 - **No sensitive data** — only FSRS card states and session history are stored in IndexedDB. No PII, no credentials.
+- **MIDI bridge** — HTTP-only on the local network (same threat model as the existing app: single-family, local-only). No authentication needed. WebSocket messages contain only MIDI note numbers (0–127) and velocities — no sensitive data. The bridge binds to all interfaces so the iPad can reach it.
 - **Dependencies** — keep dependencies minimal and audit with `npm audit` in CI.
 - **External network calls** — the only runtime network request is loading Salamander Grand Piano samples from `tonejs.github.io`. Once cached by the service worker, the app is fully offline.
 
@@ -531,6 +598,8 @@ Cross-reference of every feature from the PRD with its technical implementation:
 | DB error recovery | Done | `DbErrorDialog` in `App.tsx` — shown when IndexedDB load fails, offers reset+reload. |
 | Audio system | Done | `useAudio` hook — Salamander Grand Piano Sampler (14 sparse notes, CDN-loaded) with PolySynth fallback. `playNote` + `playChord`. Mute toggle on session screen. |
 
+| MIDI input (WebSocket bridge) | Done | `midi-bridge/` (Node.js server: MIDI reader + WebSocket + static file server) + `midiUtils.ts` (MIDI number → Note conversion) + `useMidiBridge.ts` (WebSocket client hook with auto-detect and reconnect) + `MidiStatusIndicator.tsx` (connection status dot). SessionScreen lifts `useAudio`, wires MIDI note-on events to `submitAnswer` + audio + key highlight. |
+
 ### Not Yet Implemented
 
 | Feature | Notes |
@@ -539,6 +608,4 @@ Cross-reference of every feature from the PRD with its technical implementation:
 | Detailed session summary | Currently shows basic correct/total on celebration screen |
 | Difficulty progression | Auto-unlock notes as mastery is demonstrated |
 | Per-mission settings | Session length overrides per mission |
-| Web MIDI input | Physical piano support |
 | Player profiles | Per-child progress tracking |
-| Unit tests | Vitest configured but no test files written yet |

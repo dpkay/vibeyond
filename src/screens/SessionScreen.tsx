@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useSessionStore } from "../store/sessionStore";
 import { useCardStore } from "../store/cardStore";
@@ -14,6 +14,10 @@ import { FeedbackOverlay } from "../components/FeedbackOverlay";
 import { HintOverlay } from "../components/HintOverlay";
 import { Celebration } from "../components/Celebration";
 import { StarField } from "../components/StarField";
+import { useAudio } from "../components/useAudio";
+import { useMidiBridge } from "../components/useMidiBridge";
+import { MidiStatusIndicator } from "../components/MidiStatusIndicator";
+import { midiNoteToNote, midiNoteToToneName, midiNoteToKeyId } from "../logic/midiUtils";
 import { getHint } from "../logic/hints";
 import * as Tone from "tone";
 import type { MissionId, Note } from "../types";
@@ -66,7 +70,33 @@ export function SessionScreen() {
     dismissHint,
   } = useSessionStore();
 
+  const { playNote, playChord } = useAudio();
   const [muted, setMuted] = useState(false);
+  const [midiPressedKey, setMidiPressedKey] = useState<string | null>(null);
+  const midiKeyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Refs for MIDI callback to access latest values without re-triggering hook
+  const phaseRef = useRef(phase);
+  phaseRef.current = phase;
+  const submitAnswerRef = useRef(submitAnswer);
+  submitAnswerRef.current = submitAnswer;
+
+  const handleMidiNoteOn = useCallback((msg: { note: number; velocity: number }) => {
+    if (phaseRef.current !== "playing") return;
+
+    // Play audio
+    playNote(midiNoteToToneName(msg.note));
+
+    // Flash the corresponding key on the on-screen piano
+    setMidiPressedKey(midiNoteToKeyId(msg.note));
+    if (midiKeyTimerRef.current) clearTimeout(midiKeyTimerRef.current);
+    midiKeyTimerRef.current = setTimeout(() => setMidiPressedKey(null), 200);
+
+    // Submit the answer
+    submitAnswerRef.current(midiNoteToNote(msg.note));
+  }, [playNote]);
+
+  const { status: midiStatus } = useMidiBridge({ onNoteOn: handleMidiNoteOn });
 
   const toggleMute = () => {
     const next = !muted;
@@ -199,6 +229,7 @@ export function SessionScreen() {
               />
             </button>
           )}
+          <MidiStatusIndicator status={midiStatus} />
         </div>
       </div>
 
@@ -210,11 +241,14 @@ export function SessionScreen() {
         <PianoKeyboard
           onKeyPress={handleKeyPress}
           disabled={isAnimal || phase !== "playing"}
+          playNote={playNote}
+          externalPressedKey={midiPressedKey}
         />
         {isAnimal && (
           <OctaveButtons
             onPress={handleKeyPress}
             disabled={phase !== "playing"}
+            playChord={playChord}
           />
         )}
       </div>

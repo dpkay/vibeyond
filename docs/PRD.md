@@ -115,8 +115,9 @@ The card pool key (used as the `missionId` in the database) is derived from the 
 ### Offline
 - **As a parent**, I can open the app on an airplane and everything works — no loading spinners, no missing assets.
 
-### Future: MIDI Input
-- **As Luca**, I can plug in a real digital piano and press physical keys instead of tapping the screen, making practice feel more like real playing.
+### MIDI Input
+- **As Luca**, I can play on a real digital piano connected to a computer, and the app responds to my physical key presses just like touching the screen.
+- **As Luca**, I see the on-screen piano keys light up when I press keys on my real piano, so I can see the visual connection.
 
 ## Design Principles
 
@@ -156,6 +157,7 @@ All P0 features are implemented and functional.
 | **Build stamp versioning** | Done | Git hash + timestamp build ID (`YYYYMMDD_HHMM_<hash>`) injected at build time via Vite `define`. Displayed on home screen bottom-right corner. |
 | **DB error recovery** | Done | Graceful error dialog when IndexedDB fails to load (e.g. after schema changes). Offers one-click "Reset & Reload" to delete and recreate the database. |
 | **Audio system** | Done | Salamander Grand Piano samples loaded from Tone.js CDN (sparse sampling, pitch-shifted by Tone.Sampler). PolySynth fallback during async load. Mute toggle on session screen. Animal mode plays characteristic chords per octave. |
+| **MIDI input (WebSocket bridge)** | Done | Connect a physical digital piano via USB to a computer running the MIDI bridge server. The bridge serves the PWA and forwards MIDI events over WebSocket. Auto-detects when running on the bridge — no configuration needed. On-screen piano keys light up in sync with physical key presses. |
 
 ### P1 — Future
 
@@ -170,7 +172,6 @@ All P0 features are implemented and functional.
 
 | Feature | Description |
 |---|---|
-| **Web MIDI API support** | Connect a physical digital piano via USB/Bluetooth as the input device instead of the on-screen keyboard. |
 | **Intervals and chords** | Expand beyond single notes to recognizing intervals and simple chords. Could be a new mission. |
 | **Player profiles** | Named profiles per child, each with their own mission, FSRS progress, and settings. |
 

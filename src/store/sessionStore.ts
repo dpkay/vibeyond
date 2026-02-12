@@ -23,7 +23,7 @@ interface SessionState {
   newCardsSeen: number;
   missionId: MissionId | null;
   hintActive: boolean;
-  hintUsedForCard: boolean;
+  penaltyAppliedForCard: boolean;
 
   startSession: (missionId: MissionId) => void;
   submitAnswer: (responseNote: Note) => Promise<void>;
@@ -46,7 +46,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   newCardsSeen: 0,
   missionId: null,
   hintActive: false,
-  hintUsedForCard: false,
+  penaltyAppliedForCard: false,
 
   startSession: (missionId: MissionId) => {
     const session: Session = {
@@ -99,9 +99,13 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       timestamp: new Date(),
     };
 
+    const { penaltyAppliedForCard } = get();
+    const shouldDeduct = !correct && !penaltyAppliedForCard;
     const newScore = correct
       ? session.score + 1
-      : Math.max(0, session.score - 1);
+      : shouldDeduct
+        ? Math.max(0, session.score - 1)
+        : session.score;
 
     const updatedSession: Session = {
       ...session,
@@ -132,11 +136,12 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       phase: complete ? "complete" : "feedback",
       newCardsSeen:
         currentCard.state === 0 ? newCardsSeen : newCardsSeen,
+      ...(shouldDeduct && { penaltyAppliedForCard: true }),
     });
   },
 
   advanceToNext: () => {
-    const { newCardsSeen, missionId } = get();
+    const { newCardsSeen, missionId, currentCard } = get();
     if (!missionId) return;
     const { getCardsForMission } = useCardStore.getState();
     const cards = getCardsForMission(missionId);
@@ -145,21 +150,23 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const updatedNewSeen =
       nextCard?.state === 0 ? newCardsSeen + 1 : newCardsSeen;
 
+    const cardChanged = nextCard?.id !== currentCard?.id;
+
     set({
       currentCard: nextCard,
       phase: "playing",
       lastAnswerCorrect: null,
       newCardsSeen: updatedNewSeen,
-      hintUsedForCard: false,
+      ...(cardChanged && { penaltyAppliedForCard: false }),
     });
   },
 
   useHint: () => {
-    const { session, missionId, hintUsedForCard } = get();
+    const { session, missionId, penaltyAppliedForCard } = get();
     if (!session || !missionId) return;
 
-    // Only deduct a point the first time hint is used per challenge
-    const shouldDeduct = !hintUsedForCard;
+    // Only deduct if no penalty applied yet for this challenge (hint or wrong answer)
+    const shouldDeduct = !penaltyAppliedForCard;
     const newScore = shouldDeduct
       ? Math.max(0, session.score - 1)
       : session.score;
@@ -172,7 +179,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       session: { ...session, score: newScore },
       progression: prog,
       hintActive: true,
-      hintUsedForCard: true,
+      penaltyAppliedForCard: true,
     });
   },
 
@@ -195,7 +202,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       newCardsSeen: 0,
       missionId: null,
       hintActive: false,
-      hintUsedForCard: false,
+      penaltyAppliedForCard: false,
     });
   },
 }));

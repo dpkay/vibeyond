@@ -1,8 +1,8 @@
 import type { Note } from "../types";
 
 // Staff line notes per clef (natural pitch + octave)
-const TREBLE_LINES = new Set(["E4", "G4", "B4", "D5", "F5", "C4", "A5"]);
-const BASS_LINES = new Set(["G2", "B2", "D3", "F3", "A3", "E2"]);
+const TREBLE_LINES = new Set(["C4", "E4", "G4", "B4", "D5", "F5", "A5"]);
+const BASS_LINES = new Set(["E2", "G2", "B2", "D3", "F3", "A3", "C4"]);
 
 // Mnemonics — parenthesized words are for ledger line notes (dimmer display)
 const MNEMONICS = {

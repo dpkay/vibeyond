@@ -65,6 +65,7 @@ export function SessionScreen() {
     startSession,
     submitAnswer,
     advanceToNext,
+    retryCurrent,
     endSession,
     useHint,
     dismissHint,
@@ -124,7 +125,11 @@ export function SessionScreen() {
   };
 
   const handleFeedbackComplete = () => {
-    advanceToNext();
+    if (lastAnswerCorrect) {
+      advanceToNext();
+    } else {
+      retryCurrent();
+    }
   };
 
   const handleCelebrationDone = async () => {

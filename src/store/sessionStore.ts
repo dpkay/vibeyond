@@ -28,6 +28,7 @@ interface SessionState {
   startSession: (missionId: MissionId) => void;
   submitAnswer: (responseNote: Note) => Promise<void>;
   advanceToNext: () => void;
+  retryCurrent: () => void;
   endSession: () => Promise<void>;
   useHint: () => void;
   dismissHint: () => void;
@@ -159,6 +160,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       newCardsSeen: updatedNewSeen,
       ...(cardChanged && { penaltyAppliedForCard: false }),
     });
+  },
+
+  retryCurrent: () => {
+    set({ phase: "playing", lastAnswerCorrect: null });
   },
 
   useHint: () => {
